@@ -1,104 +1,96 @@
 #!/usr/bin/env bash
-# team-query installation script
-# This script installs team-query using pipx
-
+# Simple team-query installation script
 set -e
 
-# Print with colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-YELLOW='\033[0;33m'
-NC='\033[0m' # No Color
+# Basic output functions
+log() { echo "$@"; }
+success() { echo "✓ $@"; }
+error() { echo "Error: $@"; exit 1; }
 
-printf "${BLUE}======================================${NC}\n"
-printf "${BLUE}     team-query Installer Script     ${NC}\n"
-printf "${BLUE}======================================${NC}\n"
+log "========================================"
+log "     team-query Installer Script"
+log "========================================"
 
-# Check if Python is installed
+# Check Python
 if ! command -v python3 &> /dev/null; then
-    printf "${RED}Error: Python 3 is not installed.${NC}\n"
-    printf "Please install Python 3.9 or higher and try again.\n"
-    exit 1
+    error "Python 3 is not installed. Please install Python 3.9 or higher."
 fi
 
 # Check Python version
-PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-PYTHON_MAJOR=$(printf "%s" "$PYTHON_VERSION" | cut -d. -f1)
-PYTHON_MINOR=$(printf "%s" "$PYTHON_VERSION" | cut -d. -f2)
+PY_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+PY_MAJOR=$(echo "$PY_VERSION" | cut -d. -f1)
+PY_MINOR=$(echo "$PY_VERSION" | cut -d. -f2)
 
-if [ "$PYTHON_MAJOR" -lt 3 ] || ([ "$PYTHON_MAJOR" -eq 3 ] && [ "$PYTHON_MINOR" -lt 9 ]); then
-    printf "${RED}Error: Python 3.9 or higher is required.${NC}\n"
-    printf "Current version: Python %s\n" "$PYTHON_VERSION"
-    exit 1
+if [ "$PY_MAJOR" -lt 3 ] || ([ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 9 ]); then
+    error "Python 3.9 or higher is required. Current version: Python $PY_VERSION"
 fi
 
-printf "${GREEN}✓ Python %s detected${NC}\n" "$PYTHON_VERSION"
+success "Python $PY_VERSION detected"
 
-# Check if pipx is installed
+# Check pipx
 if ! command -v pipx &> /dev/null; then
-    printf "${YELLOW}pipx is not installed. Attempting to install it...${NC}\n"
+    log "pipx is not installed. Installing it..."
     
-    # Try to install pipx using pip
     if command -v pip3 &> /dev/null; then
-        printf "Installing pipx using pip...\n"
         python3 -m pip install --user pipx
         python3 -m pipx ensurepath
     else
-        printf "${RED}Error: pip3 is not installed and is required to install pipx.${NC}\n"
-        printf "Please install pip for Python 3 and try again, or install pipx manually:\n"
-        printf "  - macOS: brew install pipx\n"
-        printf "  - Ubuntu/Debian: sudo apt install pipx\n"
-        printf "  - Fedora: sudo dnf install pipx\n"
-        exit 1
+        error "pip3 is not installed. Please install pip for Python 3."
     fi
     
-    # Check if pipx was installed successfully
     if ! command -v pipx &> /dev/null; then
-        printf "${RED}Failed to install pipx. Please install it manually:${NC}\n"
-        printf "  - macOS: brew install pipx\n"
-        printf "  - Ubuntu/Debian: sudo apt install pipx\n"
-        printf "  - Fedora: sudo dnf install pipx\n"
-        exit 1
+        error "Failed to install pipx. Please install it manually."
     fi
 fi
 
-printf "${GREEN}✓ pipx is installed${NC}\n"
+success "pipx is installed"
 
-# Ask for confirmation
-printf "\nThis script will install team-query globally using pipx.\n"
-read -p "Do you want to continue? (y/N) " -n 1 -r
-printf "\n"
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    printf "${YELLOW}Installation cancelled.${NC}\n"
-    exit 0
+# Check if running via pipe (like curl | bash)
+if [ -t 1 ]; then
+    # Running in a terminal - ask for confirmation
+    log ""
+    log "This script will install team-query globally using pipx."
+    read -p "Do you want to continue? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        log "Installation cancelled."
+        exit 0
+    fi
+else
+    # Running via pipe - proceed automatically
+    log ""
+    log "This script will install team-query globally using pipx."
+    log "Proceeding automatically (non-interactive mode)..."
 fi
 
-printf "\n${BLUE}Installing team-query...${NC}\n"
-
-# Install from PyPI using pipx
-printf "Installing from PyPI using pipx...\n"
+log ""
+log "Installing team-query..."
+log "Running: pipx install team-query"
 pipx install team-query
 
-# Check if installation was successful
+# Check installation
 if command -v team-query &> /dev/null; then
-    printf "\n${GREEN}✓ team-query has been successfully installed!${NC}\n"
-    printf "\nYou can now use team-query from anywhere with the command:\n"
-    printf "${BLUE}team-query${NC}\n"
+    success "team-query has been successfully installed!"
+    log ""
+    log "You can now use team-query from anywhere with the command:"
+    log "team-query"
     
-    # Print version
     VERSION=$(team-query --version 2>&1)
-    printf "\nInstalled version: ${GREEN}%s${NC}\n" "$VERSION"
+    log ""
+    log "Installed version: $VERSION"
     
-    printf "\n${BLUE}To get started, try:${NC}\n"
-    printf "team-query --help\n"
+    log ""
+    log "To get started, try:"
+    log "team-query --help"
 else
-    printf "\n${YELLOW}Installation completed, but team-query command not found in PATH.${NC}\n"
-    printf "This might be because pipx's bin directory is not in your PATH.\n"
-    printf "Try running: ${BLUE}python3 -m pipx ensurepath${NC}\n"
-    printf "Then restart your terminal or run: ${BLUE}source ~/.bashrc${NC} (or the appropriate file for your shell)\n"
+    log ""
+    log "Installation completed, but team-query command not found in PATH."
+    log "This might be because pipx's bin directory is not in your PATH."
+    log "Try running: python3 -m pipx ensurepath"
+    log "Then restart your terminal or source your shell configuration file."
 fi
 
-printf "\n${BLUE}======================================${NC}\n"
-printf "${BLUE}     Installation Complete!           ${NC}\n"
-printf "${BLUE}======================================${NC}\n"
+log ""
+log "========================================"
+log "     Installation Complete!"
+log "========================================"
