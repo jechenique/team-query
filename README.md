@@ -128,7 +128,7 @@ Team Query lets you write SQL queries once and generate type-safe database clien
 
 ```bash
 # Quick installation using the provided shell script (recommended)
-curl -sSL https://raw.githubusercontent.com/jechenique/team-query/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/jechenique/team-query/master/install.sh | bash
 
 # Install as a library
 pip install team-query
