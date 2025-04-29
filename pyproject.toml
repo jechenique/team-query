@@ -45,7 +45,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 team-query = "team_query.cli:main"
-blog-example = "team_query.cli:main_with_args(['generate', '--config', './team-query.yaml', '--cwd', './examples/blog'])"
+blog-example = "team_query.cli:blog_example"
 tests = "tests.run_tests:main"
 
 [tool.poetry.plugins."team_query.compilers"]

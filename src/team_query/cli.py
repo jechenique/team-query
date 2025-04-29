@@ -143,3 +143,9 @@ def main():
 def main_with_args(args=None):
     """Entry point for the CLI with predefined arguments."""
     return cli.main(args=args)
+
+
+def blog_example():
+    """Entry point for the blog example."""
+    args = ["generate", "--config", "./team-query.yaml", "--cwd", "./examples/blog"]
+    return cli.main(args=args)
