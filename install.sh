@@ -45,9 +45,9 @@ fi
 
 success "pipx is installed"
 
-# Check if running via pipe (like curl | bash)
-if [ -t 1 ]; then
-    # Running in a terminal - ask for confirmation
+# Skip interactive prompts when running via pipe (like curl | bash)
+if [ -t 0 ]; then
+    # Running in a terminal with stdin attached - ask for confirmation
     log ""
     log "This script will install team-query globally using pipx."
     read -p "Do you want to continue? (y/N) " -n 1 -r
