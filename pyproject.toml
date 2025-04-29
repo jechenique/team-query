@@ -1,0 +1,53 @@
+[tool.poetry]
+name = "team-query"
+version = "1.0.0"
+description = "The ORM you get when you love SQL but hate typing it twice."
+authors = ["Javier Echenique <akerbeltz@gmail.com>"]
+readme = "README.md"
+packages = [{include = "team_query", from = "src"}]
+repository = "https://github.com/jechenique/team-query"
+homepage = "https://github.com/jechenique/team-query"
+documentation = "https://github.com/jechenique/team-query#readme"
+license = "MIT"
+keywords = ["sql", "orm", "database", "code-generator", "postgresql"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Database",
+    "Topic :: Software Development :: Code Generators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: MIT License",
+    "Environment :: Console",
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pyyaml = "^6.0"
+importlib-metadata = "^6.0.0"
+click = "^8.1.3"
+docutils = "0.21.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.1"
+black = "^23.3.0"
+isort = "^5.12.0"
+mypy = "^1.3.0"
+pylint = "^2.17.4"
+twine = "^4.0.2"
+build = "^0.10.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+team-query = "team_query.cli:main"
+blog-example = "team_query.cli:main_with_args(['generate', '--config', './team-query.yaml', '--cwd', './examples/blog'])"
+tests = "tests.run_tests:main"
+
+[tool.poetry.plugins."team_query.compilers"]
+python = "team_query.compilers.python:PythonCompiler"
+javascript = "team_query.compilers.javascript:JavaScriptCompiler"

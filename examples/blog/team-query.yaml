@@ -1,0 +1,39 @@
+version: 1
+
+project:
+  name: "blog-example"
+  version: "0.1.0"
+
+sql:
+  - engine: "postgresql"
+    schema: ["public"]
+    queries: ["authors.sql", "posts.sql", "comments.sql"]
+    gen:
+      - plugin: "python"
+        out: "./generated/python"
+        package: "blog.db"
+        emit_json_tags: true
+        emit_db_tags: true
+        emit_prepared_queries: true
+      - plugin: "javascript"
+        out: "./generated/javascript"
+        emit_json_tags: true
+        emit_prepared_queries: true
+
+output:
+  python:
+    out: "./generated/python"
+    package: "blog.db"
+    emit_json_tags: true
+    emit_db_tags: true
+    emit_prepared_queries: true
+    
+  javascript:
+    out: "./generated/javascript"
+    emit_json_tags: true
+    emit_prepared_queries: true
+
+types:
+  - db_type: "timestamp"
+    python_type: "datetime"
+    javascript_type: "Date"
