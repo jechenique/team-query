@@ -19,21 +19,3 @@ sql:
         out: "./generated/javascript"
         emit_json_tags: true
         emit_prepared_queries: true
-
-output:
-  python:
-    out: "./generated/python"
-    package: "blog.db"
-    emit_json_tags: true
-    emit_db_tags: true
-    emit_prepared_queries: true
-    
-  javascript:
-    out: "./generated/javascript"
-    emit_json_tags: true
-    emit_prepared_queries: true
-
-types:
-  - db_type: "timestamp"
-    python_type: "datetime"
-    javascript_type: "Date"
