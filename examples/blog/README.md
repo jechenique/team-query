@@ -34,7 +34,7 @@ The database consists of three main tables:
    # Using the CLI directly
    team-query generate --config team-query.yaml
    
-   # Or using Poetry (if you're developing team-query)
+   # Or using Poetry (if you are developing team-query)
    poetry run blog-example
    ```
 

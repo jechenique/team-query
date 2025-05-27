@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 
 from team_query.builders.compilers.base import BaseCompiler
 from team_query.builders.compilers.js.templates import (
-    LOGGER_CONFIG,
+    LOGGER,
     MONITORING_CONFIG,
     MONITOR_QUERY_PERFORMANCE,
     CONDITIONAL_BLOCKS,
@@ -89,22 +89,20 @@ class JavaScriptCompiler(BaseCompiler):
             with open(file_path, "w", encoding="utf-8") as f:
                 # Add logger utility
                 print("Writing logger utility...")
-                f.write(LOGGER_CONFIG)
+                f.write(LOGGER)
                 f.write("\n\n")
 
-                # Add monitoring configuration
-                print("Writing monitoring configuration...")
-                f.write(MONITORING_CONFIG)
-                f.write("\n\n")
-
-                # Add monitoring wrapper function
+                # Add monitoring configuration and wrapper function
                 try:
+                    print("Writing monitoring configuration...")
+                    f.write(MONITORING_CONFIG)
+                    f.write("\n\n")
                     print("Writing monitoring wrapper function...")
                     f.write(MONITOR_QUERY_PERFORMANCE)
                     f.write("\n\n")
-                    print("Finished writing monitoring wrapper function")
+                    print("Finished writing monitoring configuration and wrapper function")
                 except Exception as e:
-                    print(f"Error writing monitoring wrapper function: {str(e)}")
+                    print(f"Error writing monitoring configuration and wrapper function: {str(e)}")
                     import traceback
                     traceback.print_exc()
 

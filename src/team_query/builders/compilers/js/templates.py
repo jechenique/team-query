@@ -1,5 +1,80 @@
 """JavaScript code templates for the JavaScript compiler."""
 
+# Template for the logger
+LOGGER = """
+/**
+ * Logger utility for database queries
+ */
+class Logger {
+  constructor() {
+    this._logger = null;
+    this._defaultLogger = console; // Default to console
+    this._level = 'info';
+    this.levels = {
+      error: 0,
+      warn: 1,
+      info: 2,
+      debug: 3
+    };
+  }
+
+  /**
+   * Set a custom logger
+   * @param {object} logger - The logger object to use (must have log, error, warn, debug methods)
+   */
+  setLogger(logger) {
+    this._logger = logger;
+  }
+
+  /**
+   * Set the log level
+   * @param {string} level - The log level ('error', 'warn', 'info', 'debug')
+   */
+  setLevel(level) {
+    if (this.levels.hasOwnProperty(level)) {
+      this._level = level;
+    } else {
+      this._warn(`Invalid log level: ${level}. Using 'info' as default.`);
+    }
+  }
+
+  _shouldLog(level) {
+    return this.levels[level] <= this.levels[this._level];
+  }
+
+  _log(level, ...args) {
+    const logger = this._logger || this._defaultLogger;
+    const method = logger[level] || logger.log || (() => {});
+    
+    if (this._shouldLog(level)) {
+      method.call(logger, `[${level.toUpperCase()}]`, ...args);
+    }
+  }
+
+  error(...args) {
+    this._log('error', ...args);
+  }
+
+  warn(...args) {
+    this._log('warn', ...args);
+  }
+
+  info(...args) {
+    this._log('info', ...args);
+  }
+
+  debug(...args) {
+    this._log('debug', ...args);
+  }
+}
+
+// Create a singleton instance
+const logger = new Logger();
+
+// Monitoring configuration
+let _monitoringMode = 'none';
+"""
+
 # Template for the monitoring function
 MONITOR_QUERY_PERFORMANCE = """/**
  * Wrap a query function with performance monitoring
@@ -14,183 +89,46 @@ function monitorQueryPerformance(queryFn, queryName) {
       return queryFn.apply(this, args);
     }
     
-    // For OpenTelemetry monitoring
-    if (_monitoringMode === "opentelemetry" && _openTelemetryConfigured) {
+    // For basic monitoring
+    if (_monitoringMode === "basic") {
+      const startTime = performance.now();
       try {
-        const opentelemetry = require("@opentelemetry/api");
-        
-        return await opentelemetry.context.with(
-          opentelemetry.trace.setSpan(
-            opentelemetry.context.active(),
-            _tracer.startSpan(`db_query_${queryName}`)
-          ),
-          async () => {
-            const span = opentelemetry.trace.getSpan(opentelemetry.context.active());
-            span.setAttribute("db.system", "postgresql");
-            span.setAttribute("db.operation", queryName);
-            
-            const startTime = performance.now();
-            try {
-              const result = await queryFn.apply(this, args);
-              const endTime = performance.now();
-              const executionTime = (endTime - startTime) / 1000; // Convert to seconds
-              
-              // Record metrics
-              _queryDurationHistogram.record(executionTime, { query: queryName });
-              
-              // Set span attributes
-              span.setAttribute("db.execution_time_seconds", executionTime);
-              span.setStatus({ code: opentelemetry.SpanStatusCode.OK });
-              
-              return result;
-            } catch (error) {
-              span.setStatus({
-                code: opentelemetry.SpanStatusCode.ERROR,
-                message: error.message
-              });
-              span.recordException(error);
-              throw error;
-            } finally {
-              span.end();
-            }
-          }
-        );
-      } catch (error) {
-        // If OpenTelemetry fails, fall back to basic monitoring
-        logger.warn(`OpenTelemetry monitoring failed: ${error.message}. Falling back to basic monitoring.`);
-        const startTime = performance.now();
-        try {
-          const result = await queryFn.apply(this, args);
-          const endTime = performance.now();
-          const executionTime = (endTime - startTime) / 1000; // Convert to seconds
+        const result = await queryFn.apply(this, args);
+        const endTime = performance.now();
+        const executionTime = (endTime - startTime) / 1000; // Convert to seconds
+        if (typeof logger.debug === 'function') {
           logger.debug(`Query ${queryName} executed in ${executionTime.toFixed(6)} seconds`);
-          return result;
-        } catch (error) {
-          const endTime = performance.now();
-          const executionTime = (endTime - startTime) / 1000; // Convert to seconds
-          logger.error(`Query ${queryName} failed after ${executionTime.toFixed(6)} seconds: ${error.message}`);
-          throw error;
         }
+        return [result, executionTime];
+      } catch (error) {
+        const endTime = performance.now();
+        const executionTime = (endTime - startTime) / 1000; // Convert to seconds
+        if (typeof logger.error === 'function') {
+          logger.error(`Query ${queryName} failed after ${executionTime.toFixed(6)} seconds: ${error.message}`);
+        }
+        throw error;
       }
     }
     
-    // For basic monitoring
-    const startTime = performance.now();
-    try {
-      const result = await queryFn.apply(this, args);
-      const endTime = performance.now();
-      const executionTime = (endTime - startTime) / 1000; // Convert to seconds
-      logger.debug(`Query ${queryName} executed in ${executionTime.toFixed(6)} seconds`);
-      return result;
-    } catch (error) {
-      const endTime = performance.now();
-      const executionTime = (endTime - startTime) / 1000; // Convert to seconds
-      logger.error(`Query ${queryName} failed after ${executionTime.toFixed(6)} seconds: ${error.message}`);
-      throw error;
-    }
+    // If we get here, monitoring is disabled
+    return queryFn.apply(this, args);
   };
 }
 """
 
-# Template for the logger configuration
-LOGGER_CONFIG = """/**
- * Logger utility for database queries
- */
-const logger = {
-  level: 'info', // Default log level
-  levels: {
-    error: 0,
-    warn: 1,
-    info: 2,
-    debug: 3
-  },
-  
-  error: function(message) {
-    if (this.levels[this.level] >= this.levels.error) {
-      console.error(`[ERROR] ${message}`);
-    }
-  },
-  
-  warn: function(message) {
-    if (this.levels[this.level] >= this.levels.warn) {
-      console.warn(`[WARN] ${message}`);
-    }
-  },
-  
-  info: function(message) {
-    if (this.levels[this.level] >= this.levels.info) {
-      console.info(`[INFO] ${message}`);
-    }
-  },
-  
-  debug: function(message) {
-    if (this.levels[this.level] >= this.levels.debug) {
-      console.debug(`[DEBUG] ${message}`);
-    }
-  }
-};
-
-/**
- * Set the log level
- * @param {string} level - Log level (error, warn, info, debug)
- */
-function setLogLevel(level) {
-  if (logger.levels[level] !== undefined) {
-    logger.level = level;
-    logger.info(`Log level set to: ${level}`);
-  } else {
-    logger.warn(`Invalid log level: ${level}. Using default: info`);
-  }
-}
-"""
-
 # Template for the monitoring configuration
-MONITORING_CONFIG = """// Monitoring configuration
-let _monitoringMode = "none"; // none, basic, opentelemetry
-let _openTelemetryConfigured = false;
-let _tracer = null;
-let _meter = null;
-let _queryDurationHistogram = null;
-
-/**
+MONITORING_CONFIG = """/**
  * Configure performance monitoring for database queries
- * @param {string} mode - Monitoring mode: "none", "basic", or "opentelemetry"
- * @param {object} [opentelemetryConfig] - OpenTelemetry configuration
+ * @param {string} mode - Monitoring mode: "none" or "basic"
  */
-function configureMonitoring(mode = "none", opentelemetryConfig = null) {
+function configureMonitoring(mode = "none") {
   // Validate mode
-  if (!["none", "basic", "opentelemetry"].includes(mode)) {
-    logger.warn(`Invalid monitoring mode: ${mode}. Using default: none`);
-    mode = "none";
-  }
-  
-  // Configure OpenTelemetry if requested
-  if (mode === "opentelemetry" && opentelemetryConfig) {
-    try {
-      const opentelemetry = require("@opentelemetry/api");
-      
-      // Get tracer and meter from provided configuration
-      _tracer = opentelemetryConfig.tracer || opentelemetry.trace.getTracer("db-queries");
-      _meter = opentelemetryConfig.meter || opentelemetry.metrics.getMeter("db-queries");
-      
-      // Create metrics
-      _queryDurationHistogram = _meter.createHistogram("db_query_duration", {
-        description: "Duration of database queries in seconds",
-        unit: "s",
-      });
-      
-      _openTelemetryConfigured = true;
-      logger.info("OpenTelemetry monitoring configured successfully");
-    } catch (error) {
-      logger.error(`Failed to configure OpenTelemetry: ${error.message}`);
-      logger.info("Falling back to basic monitoring");
-      mode = "basic";
-    }
+  if (!["none", "basic"].includes(mode)) {
+    throw new Error("Monitoring mode must be either 'none' or 'basic'");
   }
   
   _monitoringMode = mode;
-  
-  logger.info(`Query performance monitoring mode set to: ${_monitoringMode}`);
+  logger.info(`Monitoring configured: ${mode}`);
 }
 """
 
@@ -408,13 +346,12 @@ async function createTransaction(connection) {
 MODULE_EXPORTS = """// Export utility functions
 module.exports = {
   logger,
-  setLogLevel,
+  configureMonitoring,
+  monitorQueryPerformance,
   processConditionalBlocks,
   cleanupSql,
   convertNamedParams,
   ensureConnection,
-  configureMonitoring,
-  monitorQueryPerformance,
   createTransaction
 };
 """

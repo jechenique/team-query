@@ -426,61 +426,63 @@ main().catch(console.error);
 
 ### Logging
 
-Both Python and JavaScript clients include built-in logging:
+Both Python and JavaScript clients include built-in logging and performance monitoring:
 
 #### Python Logging
 
 ```python
-from generated.python import set_log_level
+from generated.python import set_log_level, set_logger
 
-// Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+# Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 set_log_level("DEBUG")
 
-// Now all database operations will log at this level
-user = GetUserById(conn, id=1)  // Will log query details at DEBUG level
+# Use a custom logger if desired
+from logging import getLogger
+custom_logger = getLogger("my_app")
+set_logger(custom_logger)
 
-// The Python client uses [loguru](https://github.com/Delgan/loguru) when available, with a fallback to the standard logging module.
+# Now all database operations will log at the specified level
+user = GetUserById(conn, id=1)  # Will log query details at DEBUG level
 ```
 
 #### JavaScript Logging
 
 ```javascript
-const { setLogLevel } = require('./generated/javascript');
+const { setLogLevel, setLogger } = require('./generated/javascript');
 
 // Set log level (debug, info, warn, error)
 setLogLevel('debug');
 
-// Now all database operations will log at this level
+// Use a custom logger if desired
+const customLogger = {
+  debug: (msg) => console.debug(`[DB] ${msg}`),
+  info: (msg) => console.info(`[DB] ${msg}`),
+  warn: (msg) => console.warn(`[DB] ${msg}`),
+  error: (msg) => console.error(`[DB] ${msg}`)
+};
+setLogger(customLogger);
+
+// Now all database operations will log at the specified level
 const user = await GetUserById(pool, { id: 1 });  // Will log query details at debug level
 ```
 
 ### Performance Monitoring
 
-Team Query includes configurable performance monitoring with three modes:
+Team Query includes basic performance monitoring to help track query execution times:
 
 #### Python Monitoring
 
 ```python
 from generated.python import configure_monitoring
 
-// Option 1: No monitoring (default)
+# Option 1: No monitoring (default)
 configure_monitoring(mode="none")
 
-// Option 2: Basic monitoring (logs execution time)
+# Option 2: Basic monitoring (logs execution time)
 configure_monitoring(mode="basic")
 
-// Option 3: OpenTelemetry integration
-configure_monitoring(
-    mode="opentelemetry",
-    opentelemetry_config={
-        "service_name": "my_service",
-        "endpoint": "http://otel-collector:4317",
-        "insecure": True
-    }
-)
-
-// Use queries normally - they'll be monitored according to configuration
-user = GetUserById(conn, id=1)
+# Use queries normally - they'll be monitored according to configuration
+user = GetUserById(conn, id=1)  # Will log execution time at DEBUG level
 ```
 
 #### JavaScript Monitoring
@@ -494,11 +496,8 @@ configureMonitoring("none");
 // Option 2: Basic monitoring (logs execution time)
 configureMonitoring("basic");
 
-// Option 3: OpenTelemetry integration
-configureMonitoring("opentelemetry", {
-  serviceName: "my_service",
-  endpoint: "http://otel-collector:4317",
-  insecure: true
+// Use queries normally - they'll be monitored according to configuration
+const user = await GetUserById(pool, { id: 1 });  // Will log execution time at debug level
 });
 
 // Use queries normally - they will be monitored according to configuration

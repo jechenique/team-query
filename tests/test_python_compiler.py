@@ -102,7 +102,7 @@ class TestPythonCompiler(unittest.TestCase):
 
         # Check that the utils.py file was created
         utils_path = os.path.join(self.output_dir, "utils.py")
-        mock_file.assert_any_call(utils_path, "w", encoding="utf-8")
+        mock_file.assert_any_call(utils_path, "w", encoding="utf-8", newline="\n")
 
         # Check that the file contains the SQLParser class
         handle = mock_file()

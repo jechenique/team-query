@@ -177,6 +177,43 @@ class TestJavaScriptCompiler(unittest.TestCase):
         self.assertIn("function ensureConnection", written_content)
         self.assertIn("function convertNamedParams", written_content)
         self.assertIn("module.exports", written_content)
+        
+        # Check for logger functionality
+        self.assertIn("class Logger", written_content)
+        self.assertIn("setLevel", written_content)
+        self.assertIn("setLogger", written_content)
+        self.assertIn("const logger = new Logger()", written_content)
+        
+        # Check for monitoring functionality
+        self.assertIn("let _monitoringMode = 'none'", written_content)
+        self.assertIn("function configureMonitoring", written_content)
+        self.assertIn("function monitorQueryPerformance", written_content)
+
+    @patch("builtins.open", new_callable=mock_open)
+    def test_query_monitoring(self, mock_file):
+        """Test that queries are wrapped with monitoring."""
+        # Create a mock QueriesFile
+        queries_file = MagicMock()
+        queries_file.module_name = "authors"
+        queries_file.queries = [self.returning_query]
+
+        # Create a mock SQLConfig
+        config = MagicMock()
+        config.db_type = "postgres"
+
+        # Compile the query
+        self.compiler.compile([queries_file], config, str(self.output_dir))
+
+        # Check that the generated code includes monitoring
+        handle = mock_file()
+        written_content = "".join(
+            [call.args[0] for call in handle.write.call_args_list]
+        )
+        
+        # Verify that query is wrapped with monitoring
+        self.assertIn("monitorQueryPerformance(", written_content)
+        self.assertIn("'CreateAuthor'", written_content)
+        self.assertIn("logger.debug", written_content)
 
     @patch("builtins.open", new_callable=mock_open)
     def test_generate_query_file(self, mock_file):
