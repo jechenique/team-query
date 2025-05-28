@@ -5,15 +5,8 @@ import glob
 import os
 from typing import Any, Dict, List, Optional, Union
 
-from team_query.models import (
-    Config,
-    Parameter,
-    PluginConfig,
-    ProjectConfig,
-    QueriesFile,
-    Query,
-    SQLConfig,
-)
+from team_query.models import (Config, Parameter, PluginConfig, ProjectConfig,
+                               QueriesFile, Query, SQLConfig)
 from team_query.sql_parser import SQLCStyleParser
 
 

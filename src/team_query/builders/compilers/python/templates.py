@@ -192,30 +192,61 @@ def monitor_query_performance(func: Callable = None) -> Callable:
         Decorated function that returns (result, execution_time) when monitoring is enabled
     """
     def decorator(f):
-        def wrapper(*args, **kwargs):
-            if not _monitoring_mode or _monitoring_mode == "none":
-                return f(*args, **kwargs)
-                
-            start_time = time.time()
-            try:
-                result = f(*args, **kwargs)
-                end_time = time.time()
-                execution_time = end_time - start_time
-                
-                # Log the execution time
-                Logger.debug(f"Query {f.__name__} executed in {execution_time:.6f} seconds")
-                
-                # Return both result and execution time as a tuple
-                return result, execution_time
-                
-            except Exception as e:
-                end_time = time.time()
-                execution_time = end_time - start_time
-                Logger.error(
-                    f"Query {f.__name__} failed after {execution_time:.6f} seconds: {str(e)}",
-                    exc_info=True
-                )
-                raise
+        # Check if the function is async
+        print(f"DEBUG_PROBE: Decorating function '{f.__name__}' (type: {type(f)}), checking if async.")
+        is_async = inspect.iscoroutinefunction(f)
+        print(f"DEBUG_PROBE: Function '{f.__name__}' is_async: {is_async}")
+        
+        if is_async:
+            async def wrapper(*args, **kwargs):
+                if not _monitoring_mode or _monitoring_mode == "none":
+                    return await f(*args, **kwargs)
+                    
+                start_time = time.time()
+                try:
+                    result = await f(*args, **kwargs)
+                    end_time = time.time()
+                    execution_time = end_time - start_time
+                    
+                    # Log the execution time
+                    Logger.debug(f"Query {f.__name__} executed in {execution_time:.6f} seconds")
+                    
+                    # Return both result and execution time as a tuple
+                    return result, execution_time
+                    
+                except Exception as e:
+                    end_time = time.time()
+                    execution_time = end_time - start_time
+                    Logger.error(
+                        f"Query {f.__name__} failed after {execution_time:.6f} seconds: {str(e)}",
+                        exc_info=True
+                    )
+                    raise
+        else:
+            def wrapper(*args, **kwargs):
+                if not _monitoring_mode or _monitoring_mode == "none":
+                    return f(*args, **kwargs)
+                    
+                start_time = time.time()
+                try:
+                    result = f(*args, **kwargs)
+                    end_time = time.time()
+                    execution_time = end_time - start_time
+                    
+                    # Log the execution time
+                    Logger.debug(f"Query {f.__name__} executed in {execution_time:.6f} seconds")
+                    
+                    # Return both result and execution time as a tuple
+                    return result, execution_time
+                    
+                except Exception as e:
+                    end_time = time.time()
+                    execution_time = end_time - start_time
+                    Logger.error(
+                        f"Query {f.__name__} failed after {execution_time:.6f} seconds: {str(e)}",
+                        exc_info=True
+                    )
+                    raise
         
         # Copy the original function's name and docstring
         wrapper.__name__ = f.__name__
@@ -274,7 +305,7 @@ def cleanup_sql(sql: str) -> str:
     # Remove comments
     lines = []
     # Split by newline, handling different line endings
-    for line in re.split(r'\r\n|\r|\n', sql):
+    for line in re.split(r'\\r\\n|\\r|\\n', sql):
         # Remove line comments
         if "--" in line:
             line = line[:line.index("--")]
@@ -316,7 +347,7 @@ def convert_named_params(sql: str) -> str:
     
     return "".join(result)
 
-def ensure_connection(conn_or_string: Union[psycopg.Connection, str]) -> Tuple[psycopg.Connection, bool]:
+async def ensure_connection(conn_or_string: Union[psycopg.AsyncConnection, str]) -> Tuple[psycopg.AsyncConnection, bool]:
     """Ensure we have a database connection.
     
     Args:
@@ -329,7 +360,7 @@ def ensure_connection(conn_or_string: Union[psycopg.Connection, str]) -> Tuple[p
     
     if isinstance(conn_or_string, str):
         # It's a connection string, create a new connection
-        conn = psycopg.connect(conn_or_string)
+        conn = await psycopg.AsyncConnection.connect(conn_or_string)
         should_close = True
     else:
         # It's already a connection object
@@ -359,7 +390,7 @@ class SQLParser:
 
 # Template for function with parameters
 FUNCTION_WITH_PARAMS = '''@monitor_query_performance
-def {function_name}(conn, {param_list}) -> {return_type}:
+async def {function_name}(conn, {param_list}) -> {return_type}:
     """{function_doc}
     
     Args:
@@ -374,7 +405,7 @@ def {function_name}(conn, {param_list}) -> {return_type}:
 
 # Template for function without parameters
 FUNCTION_WITHOUT_PARAMS = '''@monitor_query_performance
-def {function_name}(conn) -> {return_type}:
+async def {function_name}(conn) -> {return_type}:
     """{function_doc}
     
     Args:
@@ -388,7 +419,7 @@ def {function_name}(conn) -> {return_type}:
 
 # Template for SELECT query function body
 SELECT_QUERY_BODY = """    # Get connection
-    conn, should_close = ensure_connection(conn)
+    conn, should_close = await ensure_connection(conn)
     
     try:
 {process_conditional_blocks}
@@ -396,17 +427,17 @@ SELECT_QUERY_BODY = """    # Get connection
         sql = convert_named_params(sql)
         sql = cleanup_sql(sql)
         # Execute query
-        with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(sql{params_arg})
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(sql{params_arg})
 {result_fetch}
     finally:
         if should_close:
-            conn.close()
+            await conn.close()
 """
 
 # Template for INSERT/UPDATE/DELETE query function body
 MODIFY_QUERY_BODY = """    # Get connection
-    conn, should_close = ensure_connection(conn)
+    conn, should_close = await ensure_connection(conn)
     
     try:
 {process_conditional_blocks}
@@ -414,26 +445,26 @@ MODIFY_QUERY_BODY = """    # Get connection
         sql = convert_named_params(sql)
         sql = cleanup_sql(sql)
         # Execute query
-        with conn.cursor(row_factory=dict_row) as cur:
-            cur.execute(sql{params_arg})
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(sql{params_arg})
 {result_fetch}
-            conn.commit()
+            await conn.commit()
     finally:
         if should_close:
-            conn.close()
+            await conn.close()
 """
 
 # Template for single row result fetch
-SINGLE_ROW_FETCH = """            result = cur.fetchone()
+SINGLE_ROW_FETCH = """            result = await cur.fetchone()
             return result"""
 
 # Template for multiple rows result fetch
-MULTIPLE_ROWS_FETCH = """            result = cur.fetchall()
+MULTIPLE_ROWS_FETCH = """            result = await cur.fetchall()
             return result"""
 
 # Template for exec result fetch
 EXEC_RESULT_FETCH = """            # For INSERT/UPDATE with RETURNING
-            result = cur.fetchone()
+            result = await cur.fetchone()
             return result"""
 
 # Template for exec rows fetch

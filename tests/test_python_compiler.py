@@ -135,9 +135,12 @@ class TestPythonCompiler(unittest.TestCase):
         written_content = "".join(
             [call.args[0] for call in handle.write.call_args_list]
         )
-        self.assertIn("def GetAuthorById(conn, id: int = None)", written_content)
+        self.assertIn("async def GetAuthorById(conn, id: int = None)", written_content)
         self.assertIn("List[Dict]", written_content)  # Check return type
         self.assertIn("SELECT * FROM authors WHERE id = %s", written_content)
+        self.assertIn(
+            "await ensure_connection", written_content
+        )  # Check that ensure_connection is awaited
 
     @patch("builtins.open", new_callable=mock_open)
     def test_generate_conditional_query(self, mock_file):
@@ -183,10 +186,45 @@ class TestPythonCompiler(unittest.TestCase):
 
             # Check if the function signature is in the content (with type annotations)
             self.assertIn(
-                "def ListPosts(conn, author_id: int = None, published_only: bool = None)",
+                "async def ListPosts(conn, author_id: int = None, published_only: bool = None)",
                 written_content,
             )
             self.assertIn("List[Dict]", written_content)  # Check return type
+            self.assertIn(
+                "await ensure_connection", written_content
+            )  # Check that ensure_connection is awaited
+
+    @patch("builtins.open", new_callable=mock_open)
+    def test_monitor_query_performance_async(self, mock_file):
+        """Test that the monitor_query_performance decorator correctly handles async functions."""
+        # Create a mock QueriesFile
+        queries_file = MagicMock()
+        queries_file.path = "authors.sql"
+        queries_file.queries = [self.sample_query]
+
+        # Create a mock SQLConfig
+        config = MagicMock()
+
+        self.compiler.compile([queries_file], config, str(self.output_dir))
+
+        # Check that the utils.py file was created
+        utils_path = os.path.join(self.output_dir, "utils.py")
+        mock_file.assert_any_call(utils_path, "w", encoding="utf-8", newline="\n")
+
+        # Check that the file contains the monitor_query_performance decorator with async support
+        handle = mock_file()
+        written_content = "".join(
+            [call.args[0] for call in handle.write.call_args_list]
+        )
+
+        # Check for the async wrapper in the decorator
+        self.assertIn("is_async = inspect.iscoroutinefunction(f)", written_content)
+        self.assertIn("async def wrapper(*args, **kwargs):", written_content)
+        self.assertIn("result = await f(*args, **kwargs)", written_content)
+
+        # Check that the debug prints are included
+        self.assertIn("DEBUG_PROBE: Decorating function", written_content)
+        self.assertIn("DEBUG_PROBE: Function", written_content)
 
     @patch("builtins.open", new_callable=mock_open)
     def test_generate_init_file(self, mock_file):

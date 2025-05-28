@@ -45,10 +45,10 @@ The database consists of three main tables:
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    
    # Install required dependencies
-   pip install psycopg loguru
-   
-   # If you want to use OpenTelemetry for monitoring (optional)
-   pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp
+   # For bash:
+   pip install "psycopg[binary]" loguru
+   # For zsh:
+   pip install "psycopg[binary]" loguru
    ```
 
 4. Set up JavaScript environment:
@@ -58,9 +58,6 @@ The database consists of three main tables:
    
    # Install required dependencies
    npm install pg
-   
-   # If you need additional dependencies for logging and monitoring
-   npm install winston @opentelemetry/api @opentelemetry/sdk-node @opentelemetry/exporter-trace-otlp-http
    ```
 
    > **Note:** These examples require Node.js version 14 or higher. You can check your Node.js version with `node --version`.

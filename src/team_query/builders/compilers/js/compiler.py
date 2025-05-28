@@ -4,16 +4,9 @@ from typing import Any, Dict, List, Optional
 
 from team_query.builders.compilers.base import BaseCompiler
 from team_query.builders.compilers.js.templates import (
-    CONDITIONAL_BLOCKS,
-    CREATE_TRANSACTION,
-    ENSURE_CONNECTION,
-    LOGGER,
-    MODULE_EXPORTS,
-    MONITOR_QUERY_PERFORMANCE,
-    MONITORING_CONFIG,
-    NAMED_PARAMS,
-    SQL_CLEANUP,
-)
+    CONDITIONAL_BLOCKS, CREATE_TRANSACTION, ENSURE_CONNECTION, LOGGER,
+    MODULE_EXPORTS, MONITOR_QUERY_PERFORMANCE, MONITORING_CONFIG, NAMED_PARAMS,
+    SQL_CLEANUP)
 from team_query.models import QueriesFile, Query, SQLConfig
 
 
