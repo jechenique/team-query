@@ -1,9 +1,9 @@
 """Base compiler module with common functionality."""
 import os
 import shutil
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
-from team_query.models import QueriesFile, SQLConfig, Query
+from team_query.models import QueriesFile, Query, SQLConfig
 
 
 class BaseCompiler:
@@ -45,10 +45,10 @@ class BaseCompiler:
     def sanitize_name(self, name: str) -> str:
         """Sanitize a name to be used as a function or variable name."""
         # Replace non-alphanumeric characters with underscores
-        sanitized = ''.join(c if c.isalnum() else '_' for c in name)
+        sanitized = "".join(c if c.isalnum() else "_" for c in name)
         # Ensure the name starts with a letter
         if sanitized and not sanitized[0].isalpha():
-            sanitized = 'f_' + sanitized
+            sanitized = "f_" + sanitized
         return sanitized
 
     def compile(

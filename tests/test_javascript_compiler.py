@@ -177,13 +177,13 @@ class TestJavaScriptCompiler(unittest.TestCase):
         self.assertIn("function ensureConnection", written_content)
         self.assertIn("function convertNamedParams", written_content)
         self.assertIn("module.exports", written_content)
-        
+
         # Check for logger functionality
         self.assertIn("class Logger", written_content)
         self.assertIn("setLevel", written_content)
         self.assertIn("setLogger", written_content)
         self.assertIn("const logger = new Logger()", written_content)
-        
+
         # Check for monitoring functionality
         self.assertIn("let _monitoringMode = 'none'", written_content)
         self.assertIn("function configureMonitoring", written_content)
@@ -209,7 +209,7 @@ class TestJavaScriptCompiler(unittest.TestCase):
         written_content = "".join(
             [call.args[0] for call in handle.write.call_args_list]
         )
-        
+
         # Verify that query is wrapped with monitoring
         self.assertIn("monitorQueryPerformance(", written_content)
         self.assertIn("'CreateAuthor'", written_content)
@@ -457,9 +457,7 @@ class TestJavaScriptCompiler(unittest.TestCase):
                 "async function GetAuthorById(connection, params)",
                 written_content,
             )
-            self.assertIn(
-                "async function ListAuthors(connection)", written_content
-            )
+            self.assertIn("async function ListAuthors(connection)", written_content)
             self.assertIn(
                 "Promise<Array<Object>>", written_content
             )  # Check return type

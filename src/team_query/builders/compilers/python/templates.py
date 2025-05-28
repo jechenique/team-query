@@ -1,8 +1,6 @@
 """Python code templates for the Python compiler."""
 
-# Template for the __init__.py file
-INIT_FILE = '''"""Generated database access code."""
-'''
+# No templates needed for __init__.py as it's generated dynamically
 
 # Template for the utils.py file
 UTILS_FILE = '''"""Utility functions for database access."""
@@ -389,7 +387,7 @@ def {function_name}(conn) -> {return_type}:
 '''
 
 # Template for SELECT query function body
-SELECT_QUERY_BODY = '''    # Get connection
+SELECT_QUERY_BODY = """    # Get connection
     conn, should_close = ensure_connection(conn)
     
     try:
@@ -404,10 +402,10 @@ SELECT_QUERY_BODY = '''    # Get connection
     finally:
         if should_close:
             conn.close()
-'''
+"""
 
 # Template for INSERT/UPDATE/DELETE query function body
-MODIFY_QUERY_BODY = '''    # Get connection
+MODIFY_QUERY_BODY = """    # Get connection
     conn, should_close = ensure_connection(conn)
     
     try:
@@ -423,33 +421,33 @@ MODIFY_QUERY_BODY = '''    # Get connection
     finally:
         if should_close:
             conn.close()
-'''
+"""
 
 # Template for single row result fetch
-SINGLE_ROW_FETCH = '''            result = cur.fetchone()
-            return result'''
+SINGLE_ROW_FETCH = """            result = cur.fetchone()
+            return result"""
 
 # Template for multiple rows result fetch
-MULTIPLE_ROWS_FETCH = '''            result = cur.fetchall()
-            return result'''
+MULTIPLE_ROWS_FETCH = """            result = cur.fetchall()
+            return result"""
 
 # Template for exec result fetch
-EXEC_RESULT_FETCH = '''            # For INSERT/UPDATE with RETURNING
+EXEC_RESULT_FETCH = """            # For INSERT/UPDATE with RETURNING
             result = cur.fetchone()
-            return result'''
+            return result"""
 
 # Template for exec rows fetch
-EXEC_ROWS_FETCH = '''            # Return affected row count
-            return cur.rowcount'''
+EXEC_ROWS_FETCH = """            # Return affected row count
+            return cur.rowcount"""
 
 # Template for exec (no result)
-EXEC_NO_RESULT = '''            # No result to return
-            return None'''
+EXEC_NO_RESULT = """            # No result to return
+            return None"""
 
 # Template for conditional blocks processing
-CONDITIONAL_BLOCKS_PROCESSING = '''    # Process conditional blocks in SQL
+CONDITIONAL_BLOCKS_PROCESSING = """    # Process conditional blocks in SQL
     sql = process_conditional_blocks(sql, {params_dict})
-'''
+"""
 
 # Template for static SQL
 STATIC_SQL = '''        # Static SQL (no conditional blocks)

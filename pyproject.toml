@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "team-query"
-version = "1.0.1"
+version = "1.0.3"
 description = "The ORM you get when you love SQL but hate typing it twice."
 authors = ["Javier Echenique <akerbeltz@gmail.com>"]
 readme = "README.md"
@@ -49,5 +49,5 @@ blog-example = "team_query.cli:blog_example"
 tests = "tests.run_tests:main"
 
 [tool.poetry.plugins."team_query.compilers"]
-python = "team_query.compilers.python:PythonCompiler"
-javascript = "team_query.compilers.javascript:JavaScriptCompiler"
+python = "team_query.builders.compilers.python:compile"
+javascript = "team_query.builders.compilers.js:compile"

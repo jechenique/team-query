@@ -4,7 +4,6 @@ Command-line interface for team-query.
 import os
 import pathlib
 import sys
-from importlib import metadata
 from typing import List, Optional
 
 import click
@@ -15,20 +14,21 @@ from team_query.models import Config, SQLConfig
 
 def get_compiler_plugins():
     """Get available compiler plugins."""
-    try:
-        return {
-            entry_point.name: entry_point.load()
-            for entry_point in metadata.entry_points(group="team_query.compilers")
-        }
-    except Exception as e:
-        # Fallback to direct imports if entry points are not working
-        from team_query.builders.compilers.js import compile as javascript_compile
-        from team_query.builders.compilers.python import compile as python_compile
+    # Temporarily force fallback to diagnose potential importlib.metadata issues
+    # try:
+    #     return {
+    #         entry_point.name: entry_point.load()
+    #         for entry_point in metadata.entry_points(group="team_query.compilers")
+    #     }
+    # except Exception as e:
+    # Fallback to direct imports if entry points are not working
+    from team_query.builders.compilers.js import compile as javascript_compile
+    from team_query.builders.compilers.python import compile as python_compile
 
-        return {
-            "python": python_compile,
-            "javascript": javascript_compile,
-        }
+    return {
+        "python": python_compile,
+        "javascript": javascript_compile,
+    }
 
 
 @click.group()
