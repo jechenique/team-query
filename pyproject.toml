@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "team-query"
-version = "1.0.4"
+version = "1.0.5"
 description = "The ORM you get when you love SQL but hate typing it twice."
 authors = ["Javier Echenique <akerbeltz@gmail.com>"]
 readme = "README.md"

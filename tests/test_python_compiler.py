@@ -222,10 +222,6 @@ class TestPythonCompiler(unittest.TestCase):
         self.assertIn("async def wrapper(*args, **kwargs):", written_content)
         self.assertIn("result = await f(*args, **kwargs)", written_content)
 
-        # Check that the debug prints are included
-        self.assertIn("DEBUG_PROBE: Decorating function", written_content)
-        self.assertIn("DEBUG_PROBE: Function", written_content)
-
     @patch("builtins.open", new_callable=mock_open)
     def test_generate_init_file(self, mock_file):
         """Test generation of the __init__.py file."""

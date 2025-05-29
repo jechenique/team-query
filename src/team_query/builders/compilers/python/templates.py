@@ -10,6 +10,7 @@ import re
 import sys
 import time
 from enum import Enum
+from functools import wraps
 from typing import Any, Dict, List, Optional, Tuple, Union, Callable, TypeVar, Generic, Type
 
 import psycopg
@@ -164,8 +165,88 @@ def get_logger():
     """
     return Logger.get_logger()
 
-# Monitoring configuration
-_monitoring_mode = None
+# Import additional modules needed for thread-safe singleton pattern
+import os
+import weakref
+import threading
+import importlib.util
+
+# Initialize thread-safe storage with weak references if it doesn't exist yet
+if not hasattr(sys, '_monitoring_config_instances'):
+    sys._monitoring_config_instances = weakref.WeakValueDictionary()
+    
+# Initialize the lock at module level
+_monitoring_config_lock = threading.Lock()
+
+# Get the canonical module path
+_spec = importlib.util.find_spec(__name__)
+_module_path = os.path.abspath(_spec.origin) if _spec and _spec.origin else __file__
+_module_key = f"monitoring_config_{hash(_module_path)}"
+
+class _MonitoringState:
+    """Thread-safe singleton state container for monitoring configuration."""
+    def __init__(self):
+        self.monitoring_mode = None
+        self._lock = threading.Lock()
+
+    def set_mode(self, mode):
+        """Thread-safe mode setter."""
+        with self._lock:
+            self.monitoring_mode = mode
+
+    def get_mode(self):
+        """Thread-safe mode getter."""
+        with self._lock:
+            return self.monitoring_mode
+            
+    def __str__(self):
+        return f"Monitoring mode: {self.monitoring_mode}"
+
+def _get_monitoring_state() -> _MonitoringState:
+    """Get or create the singleton monitoring state instance.
+    
+    This function is thread-safe and ensures only one _MonitoringState instance exists
+    per module path, even when imported multiple times or from different paths.
+    """
+    with _monitoring_config_lock:
+        if _module_key not in sys._monitoring_config_instances:
+            state = _MonitoringState()
+            sys._monitoring_config_instances[_module_key] = state
+            # Keep a strong reference in the module's global namespace
+            sys.modules[__name__]._monitoring_state_ref = state
+        return sys._monitoring_config_instances[_module_key]
+
+# Initialize the singleton state
+_monitoring_state = _get_monitoring_state()
+
+class MonitoringConfig:
+    """Class for monitoring configuration.
+
+    This class provides methods for configuring monitoring settings.
+    Uses a thread-safe singleton pattern to ensure consistent state across imports.
+    """
+
+    @classmethod
+    def get_mode(cls):
+        """Get the current monitoring mode.
+
+        Returns:
+            str: The current monitoring mode.
+        """
+        # Always get the latest instance from the global registry
+        state = _get_monitoring_state()
+        return state.get_mode()
+
+    @classmethod
+    def set_mode(cls, mode: str):
+        """Set the monitoring mode.
+
+        Args:
+            mode: The monitoring mode to set.
+        """
+        # Always get the latest instance from the global registry
+        state = _get_monitoring_state()
+        state.set_mode(mode)
 
 def configure_monitoring(mode: str) -> None:
     """Configure monitoring mode.
@@ -176,31 +257,45 @@ def configure_monitoring(mode: str) -> None:
     Raises:
         ValueError: If mode is not 'none' or 'basic'
     """
-    global _monitoring_mode
     if mode.lower() not in ["none", "basic"]:
         raise ValueError('Monitoring mode must be either "none" or "basic"')
-    _monitoring_mode = mode.lower()
+    
+    # Use the MonitoringConfig class to set the mode
+    MonitoringConfig.set_mode(mode.lower())
     Logger.info(f"Monitoring configured: {mode}")
 
-def monitor_query_performance(func: Callable = None) -> Callable:
+def monitor_query_performance(func_or_mode=None) -> Callable:
     """Decorator to monitor query performance.
     
+    This can be used in two ways:
+    1. As a decorator directly: @monitor_query_performance
+    2. As a function to configure monitoring: monitor_query_performance("basic")
+    
     Args:
-        func: Function to decorate (for direct usage as @monitor_query_performance)
+        func_or_mode: Either a function to decorate or a string specifying the monitoring mode
         
     Returns:
-        Decorated function that returns (result, execution_time) when monitoring is enabled
+        Decorated function or None if used to configure monitoring
     """
+    # If called with a string argument, it's being used to configure monitoring
+    if isinstance(func_or_mode, str):
+        configure_monitoring(func_or_mode)
+        return
+        
     def decorator(f):
         # Check if the function is async
-        print(f"DEBUG_PROBE: Decorating function '{f.__name__}' (type: {type(f)}), checking if async.")
         is_async = inspect.iscoroutinefunction(f)
-        print(f"DEBUG_PROBE: Function '{f.__name__}' is_async: {is_async}")
         
         if is_async:
+            @wraps(f)
             async def wrapper(*args, **kwargs):
-                if not _monitoring_mode or _monitoring_mode == "none":
-                    return await f(*args, **kwargs)
+                # Always get the latest state from the global registry
+                monitoring_mode = MonitoringConfig.get_mode()
+                
+                if not monitoring_mode or monitoring_mode == "none":
+                    # Even when monitoring is disabled, return a tuple for consistent interface
+                    result = await f(*args, **kwargs)
+                    return result, 0
                     
                 start_time = time.time()
                 try:
@@ -222,10 +317,17 @@ def monitor_query_performance(func: Callable = None) -> Callable:
                         exc_info=True
                     )
                     raise
+            return wrapper
         else:
+            @wraps(f)
             def wrapper(*args, **kwargs):
-                if not _monitoring_mode or _monitoring_mode == "none":
-                    return f(*args, **kwargs)
+                # Always get the latest state from the global registry
+                monitoring_mode = MonitoringConfig.get_mode()
+                
+                if not monitoring_mode or monitoring_mode == "none":
+                    # Even when monitoring is disabled, return a tuple for consistent interface
+                    result = f(*args, **kwargs)
+                    return result, 0
                     
                 start_time = time.time()
                 try:
@@ -247,22 +349,12 @@ def monitor_query_performance(func: Callable = None) -> Callable:
                         exc_info=True
                     )
                     raise
-        
-        # Copy the original function's name and docstring
-        wrapper.__name__ = f.__name__
-        wrapper.__doc__ = f.__doc__
-        wrapper.__module__ = f.__module__
-        wrapper.__annotations__ = f.__annotations__
-        
-        # Copy the original function's signature
-        wrapper.__signature__ = inspect.signature(f)
-        
-        return wrapper
+            return wrapper
     
     # Handle both @monitor_query_performance and @monitor_query_performance() syntax
-    if func is None:
+    if func_or_mode is None:
         return decorator
-    return decorator(func)
+    return decorator(func_or_mode)
 
 def process_conditional_blocks(sql: str, params: Dict[str, Any]) -> str:
     """Process conditional blocks in SQL based on parameters.
