@@ -56,13 +56,13 @@ async def main():
             email="sam@example.com",
             bio="Tech blogger and software developer"
         )
-        author_id = author_result[0]['id']
+        author_id = author_result['id']
         print(f"  Author created (ID: {author_id}) in {author_exec_time:.3f}s")
         
         # Example 3: Get author by ID
         print("\n3. Getting author by ID:")
         author, exec_time = await GetAuthorById(conn, id=author_id)
-        print(f"  Author: {author[0]['name']} - {author[0]['bio']} (Query time: {exec_time:.3f}s)")
+        print(f"  Author: {author['name']} - {author['bio']} (Query time: {exec_time:.3f}s)")
         
         # Example 4: Create a new post
         print("\n4. Creating a new post:")
@@ -72,13 +72,13 @@ async def main():
             author_id=author_id,
             published=False
         )
-        post_id = post_result[0]['id']
+        post_id = post_result['id']
         print(f"  Post created (ID: {post_id}) in {post_exec_time:.3f}s")
         
         # Example 5: Publish the post
         print("\n5. Publishing the post:")
         result, exec_time = await PublishPost(conn, id=post_id)
-        published_date = result[0]['published_at'].strftime("%Y-%m-%d %H:%M:%S")
+        published_date = result['published_at'].strftime("%Y-%m-%d %H:%M:%S")
         print(f"  Post published at: {published_date} in {exec_time:.3f}s")
         
         # Example 6: List all posts
@@ -97,12 +97,12 @@ async def main():
             content="Great first post! Looking forward to more content.",
             auto_approve=False
         )
-        print(f"  Comment created (ID: {comment_result[0]['id']}) in {comment_exec_time:.3f}s")
+        print(f"  Comment created (ID: {comment_result['id']}) in {comment_exec_time:.3f}s")
             
         # Example 8: Approve the comment
         print("\n8. Approving the comment:")
-        approve_result, approve_exec_time = await ApproveComment(conn, id=comment_result[0]['id'])
-        print(f"  Comment approved: {approve_result[0]['approved']} in {approve_exec_time:.3f}s")
+        approve_result, approve_exec_time = await ApproveComment(conn, id=comment_result['id'])
+        print(f"  Comment approved: {approve_result['approved']} in {approve_exec_time:.3f}s")
         
         # Example 9: List comments for a post
         print("\n9. Listing comments for the post:")
@@ -120,7 +120,7 @@ async def main():
             email="samuel@example.com",
             bio="Technology enthusiast, blogger, and software developer."
         )
-        print(f"  Updated author: {author_result[0]['name']} - {author_result[0]['bio']} in {author_exec_time:.3f}s")
+        print(f"  Updated author: {author_result['name']} - {author_result['bio']} in {author_exec_time:.3f}s")
             
         # Example 11: Update the post
         print("\n11. Updating the post:")
@@ -129,13 +129,13 @@ async def main():
             title="My First Blog Post - Updated",
             content="This is the updated content of my first blog post using team-query."
         )
-        print(f"  Updated post: {post_result[0]['title']} in {post_exec_time:.3f}s")
+        print(f"  Updated post: {post_result['title']} in {post_exec_time:.3f}s")
         
         # Example 12: Delete operations
         print("\n12. Delete operations:")
         print("  Deleting comment...")
-        del_result, del_exec_time = await DeleteComment(conn, id=comment_result[0]['id'])
-        print(f"    - Deleted comment ID: {comment_result[0]['id']} in {del_exec_time:.3f}s")
+        del_result, del_exec_time = await DeleteComment(conn, id=comment_result['id'])
+        print(f"    - Deleted comment ID: {comment_result['id']} in {del_exec_time:.3f}s")
         
         print("  Deleting post...")
         del_result, del_exec_time = await DeletePost(conn, id=post_id)

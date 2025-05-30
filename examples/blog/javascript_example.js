@@ -49,27 +49,27 @@ async function main() {
       email: `chris.taylor.${timestamp}@example.com`,
       bio: 'Web developer and technical writer.'
     });
-    console.log(`  Created author: ${result[0].name} (ID: ${result[0].id}) in ${createExecTime.toFixed(3)}s`);
+    console.log(`  Created author: ${result.name} (ID: ${result.id}) in ${createExecTime.toFixed(3)}s`);
     
     // Example 3: Get author by ID
     console.log('\n3. Getting author by ID:');
-    const [author, execTime2] = await GetAuthorById(client, { id: result[0].id });
-    console.log(`  Found author: ${author[0].name} - ${author[0].bio} in ${execTime2.toFixed(3)}s`);
+    const [author, execTime2] = await GetAuthorById(client, { id: result.id });
+    console.log(`  Found author: ${author.name} - ${author.bio} in ${execTime2.toFixed(3)}s`);
     
     // Example 4: Create a new post
     console.log('\n4. Creating a new post:');
     const [post, execTime3] = await CreatePost(client, {
-      author_id: result[0].id,
+      author_id: result.id,
       title: 'Getting Started with Team Query',
       content: 'This is a sample blog post created using team-query.',
       published: false
     });
-    console.log(`  Created post: ${post[0].title} (ID: ${post[0].id}) in ${execTime3.toFixed(3)}s`);
+    console.log(`  Created post: ${post.title} (ID: ${post.id}) in ${execTime3.toFixed(3)}s`);
     
     // Example 5: Publish the post
     console.log('\n5. Publishing the post:');
-    const [published, execTime4] = await PublishPost(client, { id: post[0].id });
-    const publishedDate = new Date(published[0].published_at).toLocaleString();
+    const [published, execTime4] = await PublishPost(client, { id: post.id });
+    const publishedDate = new Date(published.published_at).toLocaleString();
     console.log(`  Post published at: ${publishedDate} in ${execTime4.toFixed(3)}s`);
     
     // Example 6: List recent posts
@@ -90,40 +90,40 @@ async function main() {
       // Add a comment within the transaction
       const [comment1Result] = await txn.execute(client => 
         CreateComment(client, {
-          post_id: post[0].id,
+          post_id: post.id,
           author_name: 'Transaction User 1',
           author_email: 'user1@example.com',
           content: 'This comment was added in a transaction.',
           auto_approve: true
         })
       );
-      console.log(`  Added comment 1: ${comment1Result[0].id}`);
+      console.log(`  Added comment 1: ${comment1Result.id}`);
       
       // Add another comment within the same transaction
       const [comment2Result] = await txn.execute(client => 
         CreateComment(client, {
-          post_id: post[0].id,
+          post_id: post.id,
           author_name: 'Transaction User 2',
           author_email: 'user2@example.com',
           content: 'This is another comment in the same transaction.',
           auto_approve: false
         })
       );
-      console.log(`  Added comment 2: ${comment2Result[0].id}`);
+      console.log(`  Added comment 2: ${comment2Result.id}`);
       
       // Approve the second comment
       const [approvedResult] = await txn.execute(client => 
-        ApproveComment(client, { id: comment2Result[0].id })
+        ApproveComment(client, { id: comment2Result.id })
       );
-      console.log(`  Approved comment 2: ${approvedResult[0].id}`);
+      console.log(`  Approved comment 2: ${approvedResult.id}`);
       
       // Commit the transaction
       await txn.commit();
       console.log('  Transaction committed successfully');
       
       // List comments for the post
-      const [postComments] = await ListCommentsByPost(client, { post_id: post[0].id });
-      console.log(`\n8. Comments for post "${post[0].title}":`);
+      const [postComments] = await ListCommentsByPost(client, { post_id: post.id });
+      console.log(`\n8. Comments for post "${post.title}":`);
       postComments.forEach(comment => {
         console.log(`  - ${comment.author_name}: ${comment.content}`);
       });

@@ -45,9 +45,6 @@ The database consists of three main tables:
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    
    # Install required dependencies
-   # For bash:
-   pip install "psycopg[binary]" loguru
-   # For zsh:
    pip install "psycopg[binary]" loguru
    ```
 

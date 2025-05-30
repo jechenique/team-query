@@ -411,14 +411,15 @@ class PythonCompiler(BaseCompiler):
         else:
             params_arg = ""
 
-        # Generate result fetch code based on query type
-        if not query.query_type:
+        # Generate result fetch code based on query type and returns directive
+        # First check if there's a specific returns directive that overrides the default behavior
+        if query.returns and query.returns.lower() == "one":
+            result_fetch = SINGLE_ROW_FETCH
+        elif not query.query_type:
             result_fetch = MULTIPLE_ROWS_FETCH
         elif query.query_type == QueryType.SELECT:
-            if query.returns and query.returns.lower() == "one":
-                result_fetch = SINGLE_ROW_FETCH
-            else:
-                result_fetch = MULTIPLE_ROWS_FETCH
+            # Default for SELECT is multiple rows unless :one was specified
+            result_fetch = MULTIPLE_ROWS_FETCH
         elif (
             query.query_type == QueryType.INSERT
             or query.query_type == QueryType.UPDATE

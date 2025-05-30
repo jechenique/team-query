@@ -101,7 +101,8 @@ class SQLCStyleParser:
                             sql=sql_text,
                             params=params,
                             query_type=qtype,
-                            returns=cls._infer_return_type(current_type, sql_text),
+                            # Store the original directive in returns
+                            returns=current_type.lower(),
                         )
                     )
                 # Start a new query
@@ -147,7 +148,8 @@ class SQLCStyleParser:
                     sql=sql_text,
                     params=params,
                     query_type=qtype,
-                    returns=cls._infer_return_type(current_type, sql_text),
+                    # Store the original directive in returns
+                    returns=current_type.lower(),
                 )
             )
         return queries
