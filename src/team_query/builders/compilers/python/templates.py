@@ -452,7 +452,7 @@ async def ensure_connection(conn_or_string: Union[psycopg.AsyncConnection, str])
     
     if isinstance(conn_or_string, str):
         # It's a connection string, create a new connection
-        conn = await psycopg.AsyncConnection.connect(conn_or_string)
+        conn = await psycopg.AsyncConnection.connect(conn_or_string, autocommit=True)
         should_close = True
     else:
         # It's already a connection object
