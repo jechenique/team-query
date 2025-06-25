@@ -350,12 +350,16 @@ class PythonCompiler(BaseCompiler):
         elif query.query_type == QueryType.INSERT:
             if query.returns and query.returns.lower() == "execresult":
                 return "Dict"
+            elif query.returns and query.returns.lower() == "exec":
+                return "None"
             return "int"
         elif (
             query.query_type == QueryType.UPDATE or query.query_type == QueryType.DELETE
         ):
             if query.returns and query.returns.lower() == "execresult":
                 return "Dict"
+            elif query.returns and query.returns.lower() == "exec":
+                return "None"
             return "int"
 
         return "List[Dict]"
@@ -374,12 +378,16 @@ class PythonCompiler(BaseCompiler):
         elif query.query_type == QueryType.INSERT:
             if query.returns and query.returns.lower() == "execresult":
                 return "        Dict: Returned data from the INSERT"
+            elif query.returns and query.returns.lower() == "exec":
+                return "        None: No return value"
             return "        int: Number of rows affected"
         elif (
             query.query_type == QueryType.UPDATE or query.query_type == QueryType.DELETE
         ):
             if query.returns and query.returns.lower() == "execresult":
                 return "        Dict: Returned data from the UPDATE/DELETE"
+            elif query.returns and query.returns.lower() == "exec":
+                return "        None: No return value"
             return "        int: Number of rows affected"
 
         return "        List[Dict]: Query result"

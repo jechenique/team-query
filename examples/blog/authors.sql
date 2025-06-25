@@ -14,7 +14,7 @@ INSERT INTO authors (name, email, bio)
 VALUES (:name, :email, :bio)
 RETURNING *;
 
--- name: UpdateAuthor :one
+-- name: UpdateAuthor :exec
 -- param: id int The ID of the author to update
 -- param: name string The author's full name
 -- param: email string The author's email address
@@ -23,8 +23,7 @@ UPDATE authors
 SET name = :name,
     email = :email,
     bio = :bio
-WHERE id = :id
-RETURNING *;
+WHERE id = :id;
 
 -- name: DeleteAuthor :exec
 -- param: id int The ID of the author to delete

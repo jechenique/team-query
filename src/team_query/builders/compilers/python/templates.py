@@ -539,8 +539,9 @@ MODIFY_QUERY_BODY = """    # Get connection
         # Execute query
         async with conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(sql{params_arg})
-{result_fetch}
+            # Commit changes before returning
             await conn.commit()
+{result_fetch}
     finally:
         if should_close:
             await conn.close()
