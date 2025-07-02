@@ -11,8 +11,8 @@ class SQLCStyleParser:
     """Parser for SQL queries in sqlc-style format."""
 
     # Regex patterns for sqlc-style queries
-    QUERY_PATTERN = r"--\s*name:\s*(\w+)\s*:(\w+)\s*\n((?:(?:--(?!\s*name:).*\n)|(?:\s*\n))*)([\s\S]+?)(?=(?:--\s*name:)|\Z)"
-    PARAM_PATTERN = r":(\w+)"
+    QUERY_PATTERN = r"--\s*name:\s*(\w+)\s*:(\w+)\s*\n((?:(?:--(?!\s*name:).*\n)|(?:\s*\n))*)(([\s\S]+?)(?=(?:--\s*name:)|\Z))"
+    PARAM_PATTERN = r"(?<!:):(\w+)"
     PARAM_TYPE_PATTERN = r"--\s*param:\s*(\w+)\s+(\w+)(?:\s+(.+))?"
 
     # Query type mapping

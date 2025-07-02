@@ -7,7 +7,7 @@ project:
 sql:
   - engine: "postgresql"
     schema: ["public"]
-    queries: ["authors.sql", "posts.sql", "comments.sql"]
+    queries: ["authors.sql", "posts.sql", "comments.sql", "test_type_cast.sql"]
     gen:
       - plugin: "python"
         out: "./generated/python"

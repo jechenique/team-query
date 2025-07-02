@@ -11,7 +11,7 @@ class SQLParser:
     """Parser for SQL queries with wildcard support."""
 
     # Regex patterns for parameter placeholders
-    NAMED_PARAM_PATTERN = r":([a-zA-Z_][a-zA-Z0-9_]*)"
+    NAMED_PARAM_PATTERN = r"(?<!:):([a-zA-Z_][a-zA-Z0-9_]*)"
     POSITIONAL_PARAM_PATTERN = r"\$([0-9]+)"
 
     # Regex pattern for conditional blocks
@@ -21,9 +21,13 @@ class SQLParser:
     def extract_wildcards(cls, query: Query) -> Set[str]:
         """Extract wildcard parameters from a SQL query."""
         wildcards = set()
-
-        # Find all named parameters (:param)
-        for match in re.finditer(cls.NAMED_PARAM_PATTERN, query.sql):
+        
+        # Pre-process SQL to temporarily replace PostgreSQL type casts
+        # This ensures that ::type constructs are completely ignored during parameter extraction
+        processed_sql = re.sub(r"::", "__TYPE_CAST_PLACEHOLDER__", query.sql)
+        
+        # Find all named parameters (:param) in the pre-processed SQL
+        for match in re.finditer(cls.NAMED_PARAM_PATTERN, processed_sql):
             wildcards.add(match.group(1))
 
         # Find all positional parameters ($1, $2, etc.)
@@ -54,12 +58,28 @@ class SQLParser:
     @classmethod
     def replace_wildcards(cls, sql: str, params: Dict[str, str]) -> str:
         """Replace wildcards in SQL with actual values."""
+        # Pre-process SQL to temporarily replace PostgreSQL type casts
+        # This ensures that ::type constructs are completely preserved during wildcard replacement
+        type_cast_placeholders = {}
+        pattern = r"::\w+"
+        
+        # Find all PostgreSQL type casts and replace them with unique placeholders
+        for i, match in enumerate(re.finditer(pattern, sql)):
+            placeholder = f"__TYPE_CAST_PLACEHOLDER_{i}__"
+            type_cast = match.group(0)
+            type_cast_placeholders[placeholder] = type_cast
+            sql = sql.replace(type_cast, placeholder, 1)
+        
         result = sql
-
+        
         # Replace named parameters
         for name, value in params.items():
             result = re.sub(f":{name}\\b", value, result)
-
+        
+        # Restore PostgreSQL type casts
+        for placeholder, type_cast in type_cast_placeholders.items():
+            result = result.replace(placeholder, type_cast)
+        
         return result
 
     @classmethod

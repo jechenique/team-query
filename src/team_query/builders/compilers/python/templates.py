@@ -421,7 +421,7 @@ def convert_named_params(sql: str) -> str:
         SQL query with %(name)s parameters
     """
     # Find all named parameters in the SQL query
-    pattern = r":(\w+)"
+    pattern = r"(?<!:):(\w+)"
     
     result = []
     last_end = 0
