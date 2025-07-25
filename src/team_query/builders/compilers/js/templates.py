@@ -221,15 +221,22 @@ function convertNamedParams(sql, params) {
 
 # Template for ensuring connection
 ENSURE_CONNECTION = """/**
- * Ensure a database connection is available
- * @param {object|string} connection - Database connection, pool, or connection string
- * @returns {object} - Database connection
+ * Ensure we have a valid database connection
+ * @param {string|object} connection - Connection string or existing client/pool
+ * @returns {Promise<Array>} - [connection, shouldClose]
  */
 async function ensureConnection(connection) {
+  let shouldClose = false;
+  
   // If connection is already a client or pool, return it
   if (connection && typeof connection !== 'string') {
-    // TODO: Add checks to ensure it's a valid pg Client or Pool
-    return connection;
+    // If it's an array [client, release] from createClient
+    if (Array.isArray(connection) && connection.length >= 1) {
+      // Just return the client part
+      return [connection[0], shouldClose];
+    }
+    // Regular client or pool object
+    return [connection, shouldClose];
   }
   
   // If connection is a string, create a new client
@@ -237,7 +244,8 @@ async function ensureConnection(connection) {
     const { Client } = require('pg');
     const client = new Client(connection);
     await client.connect(); // Wait for connection to establish
-    return client;
+    shouldClose = true;
+    return [client, shouldClose];
   }
   
   // If no connection provided, throw error
@@ -252,8 +260,14 @@ CREATE_TRANSACTION = """/**
  * @returns {object} - Transaction object
  */
 async function createTransaction(connection) {
-  const db = await ensureConnection(connection);
-  const isNewConnection = typeof connection === 'string';
+  // Handle case where connection might be [client, release] from createClient
+  // Note: This is now handled in ensureConnection, but keeping for backward compatibility
+  if (Array.isArray(connection) && connection.length >= 1) {
+    connection = connection[0];
+  }
+  
+  // ensureConnection returns [connection, shouldClose]
+  const [db, isNewConnection] = await ensureConnection(connection);
   let client = null;
   
   return {
@@ -263,14 +277,18 @@ async function createTransaction(connection) {
      */
     async begin() {
       if (!client) {
-        if (db.query) {
-          // If db is already a client, use it directly
+        // Determine if we have a client or pool
+        if (typeof db.query === 'function') {
+          // If db has a query method, it's likely a client already
           client = db;
           client._transactionClient = true;
-        } else {
-          // If db is a pool, get a client from the pool
+        } else if (typeof db.connect === 'function') {
+          // If db has a connect method, it's a pool
           client = await db.connect();
           client._transactionClient = true;
+        } else {
+          // Neither - something's wrong
+          throw new Error('Invalid database connection - neither a client nor a pool');
         }
       }
       await client.query('BEGIN');
@@ -288,13 +306,23 @@ async function createTransaction(connection) {
       }
       await client.query('COMMIT');
       logger.debug('Transaction committed');
-      if (client !== db) {
-        client.release();
+      try {
+        if (client !== db) {
+          // If this is a connection from a pool, release it
+          if (typeof client.release === 'function') {
+            client.release();
+          }
+        }
+        
+        // If we created a new connection, close it
+        if (isNewConnection && typeof db.end === 'function') {
+          await db.end();
+        }
+      } catch (e) {
+        logger.warn(`Error during connection cleanup: ${e.message}`);
+      } finally {
+        client = null;
       }
-      if (isNewConnection) {
-        await db.end();
-      }
-      client = null;
     },
     
     /**
@@ -303,17 +331,28 @@ async function createTransaction(connection) {
      */
     async rollback() {
       if (!client) {
-        throw new Error('No active transaction to rollback');
+        logger.warn('No active transaction to rollback - transaction may have already been committed or rolled back');
+        return;
       }
       await client.query('ROLLBACK');
       logger.debug('Transaction rolled back');
-      if (client !== db) {
-        client.release();
+      try {
+        if (client !== db) {
+          // If this is a connection from a pool, release it
+          if (typeof client.release === 'function') {
+            client.release();
+          }
+        }
+        
+        // If we created a new connection, close it
+        if (isNewConnection && typeof db.end === 'function') {
+          await db.end();
+        }
+      } catch (e) {
+        logger.warn(`Error during connection cleanup: ${e.message}`);
+      } finally {
+        client = null;
       }
-      if (isNewConnection) {
-        await db.end();
-      }
-      client = null;
     },
     
     /**

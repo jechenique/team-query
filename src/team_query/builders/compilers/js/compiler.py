@@ -192,21 +192,38 @@ class JavaScriptCompiler(BaseCompiler):
                     'const { logger, setLogLevel, processConditionalBlocks, cleanupSql, convertNamedParams, ensureConnection, configureMonitoring, monitorQueryPerformance, createTransaction } = require("./utils");\n\n'
                 )
 
-                # Create transaction function
+                # Create client function
                 f.write("/**\n")
                 f.write(" * Create a database client\n")
                 f.write(
-                    " * @param {string} connectionString - Database connection string\n"
+                    " * @param {string | object} connection - Database connection string or a connection pool\n"
                 )
-                f.write(" * @returns {object} - Database client\n")
+                f.write(
+                    " * @returns {Promise<object>} - A client object with a customized end() method\n"
+                )
                 f.write(" */\n")
-                f.write("async function createClient(connectionString) {\n")
-                f.write("  return await ensureConnection(connectionString);\n")
+                f.write("async function createClient(connection) {\n")
+                f.write(
+                    "  const [client, shouldClose] = await ensureConnection(connection);\n"
+                )
+                f.write("\n")
+                f.write(
+                    "  // Override the end method to handle connection closing correctly\n"
+                )
+                f.write("  const originalEnd = client.end.bind(client);\n")
+                f.write("  client.end = async () => {\n")
+                f.write("    if (shouldClose) {\n")
+                f.write("      await originalEnd();\n")
+                f.write("    } else if (typeof client.release === 'function') {\n")
+                f.write("      client.release();\n")
+                f.write("    }\n")
+                f.write("  };\n")
+                f.write("\n")
+                f.write("  return client;\n")
                 f.write("}\n\n")
 
                 # Import query modules
                 for query_file in self.query_files:
-                    # Extract module name from file path
                     file_name = os.path.basename(query_file.path)
                     module_name = self.sanitize_name(os.path.splitext(file_name)[0])
                     f.write(f'const {module_name} = require("./{module_name}");\n')
@@ -334,11 +351,52 @@ class JavaScriptCompiler(BaseCompiler):
 
                     # Execute the query based on its type
                     if query.query_type and query.query_type.value == "select":
+                        f.write("  // Declare variables for connection handling\n")
+                        f.write("  let client;\n")
+                        f.write("  let shouldClose = false;\n")
                         f.write("  try {\n")
                         f.write("    // Execute SELECT query\n")
+                        f.write("    // Get client from connection or create new one\n")
+                        f.write("    if (typeof connection === 'string') {\n")
                         f.write(
-                            "    const client = await ensureConnection(connection);\n"
+                            "      logger.debug('Creating connection from string:', connection);\n"
                         )
+                        f.write(
+                            "      const connResult = await ensureConnection(connection);\n"
+                        )
+                        f.write(
+                            "      logger.debug('ensureConnection result:', connResult);\n"
+                        )
+                        f.write("      client = connResult[0];\n")
+                        f.write("      shouldClose = connResult[1];\n")
+                        f.write(
+                            "      logger.debug('Client object:', typeof client, client ? 'has query method:' : 'is null/undefined', client && typeof client.query);\n"
+                        )
+                        f.write("    } else {\n")
+                        f.write(
+                            "      // Handle different connection types more carefully\n"
+                        )
+                        f.write(
+                            "      if (connection === undefined || connection === null) {\n"
+                        )
+                        f.write(
+                            "        throw new Error('Connection is undefined or null');\n"
+                        )
+                        f.write("      }\n")
+                        f.write(
+                            "      client = Array.isArray(connection) ? connection[0] : connection;\n"
+                        )
+                        f.write(
+                            "      // Verify client is valid\n"
+                        )
+                        f.write(
+                            "      if (!client || typeof client.query !== 'function') {\n"
+                        )
+                        f.write(
+                            "        throw new Error('Invalid client object: missing query method');\n"
+                        )
+                        f.write("      }\n")
+                        f.write("    }\n")
                         f.write(
                             "    const result = await client.query(convertedSql, values);\n"
                         )
@@ -361,13 +419,62 @@ class JavaScriptCompiler(BaseCompiler):
                             "    logger.error(`Error executing query: ${error.message}`);\n"
                         )
                         f.write("    throw error;\n")
+                        f.write("  } finally {\n")
+                        f.write(
+                            "    // Close connection if it was created in this function\n"
+                        )
+                        f.write("    if (shouldClose && client) {\n")
+                        f.write("      logger.debug('Closing database connection');\n")
+                        f.write("      await client.end();\n")
+                        f.write("    }\n")
                         f.write("  }\n")
                     elif query.query_type and query.query_type.value == "insert":
+                        f.write("  // Declare variables for connection handling\n")
+                        f.write("  let client;\n")
+                        f.write("  let shouldClose = false;\n")
                         f.write("  try {\n")
                         f.write("    // Execute INSERT query\n")
+                        f.write("    // Get client from connection or create new one\n")
+                        f.write("    if (typeof connection === 'string') {\n")
                         f.write(
-                            "    const client = await ensureConnection(connection);\n"
+                            "      logger.debug('Creating connection from string:', connection);\n"
                         )
+                        f.write(
+                            "      const connResult = await ensureConnection(connection);\n"
+                        )
+                        f.write(
+                            "      logger.debug('ensureConnection result:', connResult);\n"
+                        )
+                        f.write("      client = connResult[0];\n")
+                        f.write("      shouldClose = connResult[1];\n")
+                        f.write(
+                            "      logger.debug('Client object:', typeof client, client ? 'has query method:' : 'is null/undefined', client && typeof client.query);\n"
+                        )
+                        f.write("    } else {\n")
+                        f.write(
+                            "      // Handle different connection types more carefully\n"
+                        )
+                        f.write(
+                            "      if (connection === undefined || connection === null) {\n"
+                        )
+                        f.write(
+                            "        throw new Error('Connection is undefined or null');\n"
+                        )
+                        f.write("      }\n")
+                        f.write(
+                            "      client = Array.isArray(connection) ? connection[0] : connection;\n"
+                        )
+                        f.write(
+                            "      // Verify client is valid\n"
+                        )
+                        f.write(
+                            "      if (!client || typeof client.query !== 'function') {\n"
+                        )
+                        f.write(
+                            "        throw new Error('Invalid client object: missing query method');\n"
+                        )
+                        f.write("      }\n")
+                        f.write("    }\n")
                         f.write(
                             "    const result = await client.query(convertedSql, values);\n"
                         )
@@ -384,13 +491,62 @@ class JavaScriptCompiler(BaseCompiler):
                             "    logger.error(`Error executing query: ${error.message}`);\n"
                         )
                         f.write("    throw error;\n")
+                        f.write("  } finally {\n")
+                        f.write(
+                            "    // Close connection if it was created in this function\n"
+                        )
+                        f.write("    if (shouldClose && client) {\n")
+                        f.write("      logger.debug('Closing database connection');\n")
+                        f.write("      await client.end();\n")
+                        f.write("    }\n")
                         f.write("  }\n")
                     elif query.query_type and query.query_type.value == "update":
+                        f.write("  // Declare variables for connection handling\n")
+                        f.write("  let client;\n")
+                        f.write("  let shouldClose = false;\n")
                         f.write("  try {\n")
                         f.write("    // Execute UPDATE query\n")
+                        f.write("    // Get client from connection or create new one\n")
+                        f.write("    if (typeof connection === 'string') {\n")
                         f.write(
-                            "    const client = await ensureConnection(connection);\n"
+                            "      logger.debug('Creating connection from string:', connection);\n"
                         )
+                        f.write(
+                            "      const connResult = await ensureConnection(connection);\n"
+                        )
+                        f.write(
+                            "      logger.debug('ensureConnection result:', connResult);\n"
+                        )
+                        f.write("      client = connResult[0];\n")
+                        f.write("      shouldClose = connResult[1];\n")
+                        f.write(
+                            "      logger.debug('Client object:', typeof client, client ? 'has query method:' : 'is null/undefined', client && typeof client.query);\n"
+                        )
+                        f.write("    } else {\n")
+                        f.write(
+                            "      // Handle different connection types more carefully\n"
+                        )
+                        f.write(
+                            "      if (connection === undefined || connection === null) {\n"
+                        )
+                        f.write(
+                            "        throw new Error('Connection is undefined or null');\n"
+                        )
+                        f.write("      }\n")
+                        f.write(
+                            "      client = Array.isArray(connection) ? connection[0] : connection;\n"
+                        )
+                        f.write(
+                            "      // Verify client is valid\n"
+                        )
+                        f.write(
+                            "      if (!client || typeof client.query !== 'function') {\n"
+                        )
+                        f.write(
+                            "        throw new Error('Invalid client object: missing query method');\n"
+                        )
+                        f.write("      }\n")
+                        f.write("    }\n")
                         f.write(
                             "    const result = await client.query(convertedSql, values);\n"
                         )
@@ -405,32 +561,134 @@ class JavaScriptCompiler(BaseCompiler):
                             "    logger.error(`Error executing query: ${error.message}`);\n"
                         )
                         f.write("    throw error;\n")
+                        f.write("  } finally {\n")
+                        f.write(
+                            "    // Close connection if it was created in this function\n"
+                        )
+                        f.write("    if (shouldClose && client) {\n")
+                        f.write("      logger.debug('Closing database connection');\n")
+                        f.write("      await client.end();\n")
+                        f.write("    }\n")
                         f.write("  }\n")
                     elif query.query_type and query.query_type.value == "delete":
+                        f.write("  // Declare variables for connection handling\n")
+                        f.write("  let client;\n")
+                        f.write("  let shouldClose = false;\n")
                         f.write("  try {\n")
                         f.write("    // Execute DELETE query\n")
+                        f.write("    // Get client from connection or create new one\n")
+                        f.write("    if (typeof connection === 'string') {\n")
                         f.write(
-                            "    const client = await ensureConnection(connection);\n"
+                            "      logger.debug('Creating connection from string:', connection);\n"
                         )
+                        f.write(
+                            "      const connResult = await ensureConnection(connection);\n"
+                        )
+                        f.write(
+                            "      logger.debug('ensureConnection result:', connResult);\n"
+                        )
+                        f.write("      client = connResult[0];\n")
+                        f.write("      shouldClose = connResult[1];\n")
+                        f.write(
+                            "      logger.debug('Client object:', typeof client, client ? 'has query method:' : 'is null/undefined', client && typeof client.query);\n"
+                        )
+                        f.write("    } else {\n")
+                        f.write(
+                            "      // Handle different connection types more carefully\n"
+                        )
+                        f.write(
+                            "      if (connection === undefined || connection === null) {\n"
+                        )
+                        f.write(
+                            "        throw new Error('Connection is undefined or null');\n"
+                        )
+                        f.write("      }\n")
+                        f.write(
+                            "      client = Array.isArray(connection) ? connection[0] : connection;\n"
+                        )
+                        f.write(
+                            "      // Verify client is valid\n"
+                        )
+                        f.write(
+                            "      if (!client || typeof client.query !== 'function') {\n"
+                        )
+                        f.write(
+                            "        throw new Error('Invalid client object: missing query method');\n"
+                        )
+                        f.write("      }\n")
+                        f.write("      shouldClose = false;\n")
+                        f.write("    }\n")
                         f.write(
                             "    const result = await client.query(convertedSql, values);\n"
                         )
                         f.write("    let rowCount = result.rowCount || 0;\n")
-                        f.write("    logger.debug(`Deleted ${rowCount} rows`);\n")
+                        f.write(
+                            "    logger.debug(`Deleted ${rowCount} rows`);\n"
+                        )
                         f.write("    return rowCount;\n")
                         f.write("  } catch (error) {\n")
                         f.write(
                             "    logger.error(`Error executing query: ${error.message}`);\n"
                         )
                         f.write("    throw error;\n")
+                        f.write("  } finally {\n")
+                        f.write(
+                            "    // Close connection if it was created in this function\n"
+                        )
+                        f.write("    if (shouldClose && client) {\n")
+                        f.write("      logger.debug('Closing database connection');\n")
+                        f.write("      await client.end();\n")
+                        f.write("    }\n")
                         f.write("  }\n")
                     else:
                         # Default to generic query execution
+                        f.write("  // Declare variables for connection handling\n")
+                        f.write("  let client;\n")
+                        f.write("  let shouldClose = false;\n")
                         f.write("  try {\n")
                         f.write("    // Execute generic query\n")
+                        f.write("    // Get client from connection or create new one\n")
+                        f.write("    if (typeof connection === 'string') {\n")
                         f.write(
-                            "    const client = await ensureConnection(connection);\n"
+                            "      logger.debug('Creating connection from string:', connection);\n"
                         )
+                        f.write(
+                            "      const connResult = await ensureConnection(connection);\n"
+                        )
+                        f.write(
+                            "      logger.debug('ensureConnection result:', connResult);\n"
+                        )
+                        f.write("      client = connResult[0];\n")
+                        f.write("      shouldClose = connResult[1];\n")
+                        f.write(
+                            "      logger.debug('Client object:', typeof client, client ? 'has query method:' : 'is null/undefined', client && typeof client.query);\n"
+                        )
+                        f.write("    } else {\n")
+                        f.write(
+                            "      // Handle different connection types more carefully\n"
+                        )
+                        f.write(
+                            "      if (connection === undefined || connection === null) {\n"
+                        )
+                        f.write(
+                            "        throw new Error('Connection is undefined or null');\n"
+                        )
+                        f.write("      }\n")
+                        f.write(
+                            "      client = Array.isArray(connection) ? connection[0] : connection;\n"
+                        )
+                        f.write(
+                            "      // Verify client is valid\n"
+                        )
+                        f.write(
+                            "      if (!client || typeof client.query !== 'function') {\n"
+                        )
+                        f.write(
+                            "        throw new Error('Invalid client object: missing query method');\n"
+                        )
+                        f.write("      }\n")
+                        f.write("      shouldClose = false;\n")
+                        f.write("    }\n")
                         f.write(
                             "    const result = await client.query(convertedSql, values);\n"
                         )
@@ -444,11 +702,19 @@ class JavaScriptCompiler(BaseCompiler):
                             "    logger.error(`Error executing query: ${error.message}`);\n"
                         )
                         f.write("    throw error;\n")
+                        f.write("  } finally {\n")
+                        f.write(
+                            "    // Close connection if it was created in this function\n"
+                        )
+                        f.write("    if (shouldClose && client) {\n")
+                        f.write("      logger.debug('Closing database connection');\n")
+                        f.write("      await client.end();\n")
+                        f.write("    }\n")
                         f.write("  }\n")
 
                     f.write("}\n\n")
 
-                    # Export the function
+                    # Export the function with monitoring wrapper
                     f.write(f"// Export the function\n")
                     f.write(
                         f"module.exports.{function_name} = monitorQueryPerformance({function_name}, '{function_name}');\n\n"
