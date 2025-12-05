@@ -386,9 +386,7 @@ class JavaScriptCompiler(BaseCompiler):
                         f.write(
                             "      client = Array.isArray(connection) ? connection[0] : connection;\n"
                         )
-                        f.write(
-                            "      // Verify client is valid\n"
-                        )
+                        f.write("      // Verify client is valid\n")
                         f.write(
                             "      if (!client || typeof client.query !== 'function') {\n"
                         )
@@ -464,9 +462,7 @@ class JavaScriptCompiler(BaseCompiler):
                         f.write(
                             "      client = Array.isArray(connection) ? connection[0] : connection;\n"
                         )
-                        f.write(
-                            "      // Verify client is valid\n"
-                        )
+                        f.write("      // Verify client is valid\n")
                         f.write(
                             "      if (!client || typeof client.query !== 'function') {\n"
                         )
@@ -536,9 +532,7 @@ class JavaScriptCompiler(BaseCompiler):
                         f.write(
                             "      client = Array.isArray(connection) ? connection[0] : connection;\n"
                         )
-                        f.write(
-                            "      // Verify client is valid\n"
-                        )
+                        f.write("      // Verify client is valid\n")
                         f.write(
                             "      if (!client || typeof client.query !== 'function') {\n"
                         )
@@ -606,9 +600,7 @@ class JavaScriptCompiler(BaseCompiler):
                         f.write(
                             "      client = Array.isArray(connection) ? connection[0] : connection;\n"
                         )
-                        f.write(
-                            "      // Verify client is valid\n"
-                        )
+                        f.write("      // Verify client is valid\n")
                         f.write(
                             "      if (!client || typeof client.query !== 'function') {\n"
                         )
@@ -622,9 +614,7 @@ class JavaScriptCompiler(BaseCompiler):
                             "    const result = await client.query(convertedSql, values);\n"
                         )
                         f.write("    let rowCount = result.rowCount || 0;\n")
-                        f.write(
-                            "    logger.debug(`Deleted ${rowCount} rows`);\n"
-                        )
+                        f.write("    logger.debug(`Deleted ${rowCount} rows`);\n")
                         f.write("    return rowCount;\n")
                         f.write("  } catch (error) {\n")
                         f.write(
@@ -677,9 +667,7 @@ class JavaScriptCompiler(BaseCompiler):
                         f.write(
                             "      client = Array.isArray(connection) ? connection[0] : connection;\n"
                         )
-                        f.write(
-                            "      // Verify client is valid\n"
-                        )
+                        f.write("      // Verify client is valid\n")
                         f.write(
                             "      if (!client || typeof client.query !== 'function') {\n"
                         )

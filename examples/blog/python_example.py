@@ -4,15 +4,15 @@ Example of using the generated Python code to interact with the blog database.
 import sys
 import logging
 import asyncio
-import psycopg
+import time
 from datetime import datetime
 
 # Import from the generated modules
 from generated.python.authors import GetAuthorById, ListAuthors, CreateAuthor, UpdateAuthor, DeleteAuthor
 from generated.python.posts import GetPostById, ListPosts, CreatePost, PublishPost, UpdatePost, DeletePost
 from generated.python.comments import ListCommentsByPost, CreateComment, ApproveComment, DeleteComment
-# Import utility functions for telemetry and logging
-from generated.python.utils import set_log_level, configure_monitoring, set_logger, Logger
+# Import utility functions for telemetry, logging, and connection pool management
+from generated.python.utils import set_log_level, configure_monitoring, set_logger, init_pool, get_pool, close_pool
 
 async def main():
     """Main function to demonstrate the usage of generated code."""
@@ -39,19 +39,21 @@ async def main():
     conn_string = "postgresql://postgres:1234@localhost:5433/blog"
     
     try:
-        # Connect to the database
-        conn = await psycopg.AsyncConnection.connect(conn_string, row_factory=psycopg.rows.dict_row)
-        print("Connected to database")
+        # Initialize the global connection pool (convenience approach)
+        # This creates a pool with default settings (min_size=2, max_size=10)
+        await init_pool(conn_string, min_size=2, max_size=10)
+        print("Connection pool initialized\n")
         
+        # Now all queries will use get_pool() to get connections from the pool
         # Example 1: List all authors
-        print("\n1. Listing all authors:")
-        authors, _ = await ListAuthors(conn)
+        print("1. Listing all authors:")
+        authors, _ = await ListAuthors(get_pool())
         for author in authors:
             print(f"  - {author['name']} ({author['email']})")
         
         # Example 2: Create a new author
         print("\n2. Creating a new author:")
-        author_result, author_exec_time = await CreateAuthor(conn,
+        author_result, author_exec_time = await CreateAuthor(get_pool(),
             name="Sam Wilson",
             email="sam@example.com",
             bio="Tech blogger and software developer"
@@ -61,12 +63,12 @@ async def main():
         
         # Example 3: Get author by ID
         print("\n3. Getting author by ID:")
-        author, exec_time = await GetAuthorById(conn, id=author_id)
+        author, exec_time = await GetAuthorById(get_pool(), id=author_id)
         print(f"  Author: {author['name']} - {author['bio']} (Query time: {exec_time:.3f}s)")
         
         # Example 4: Create a new post
         print("\n4. Creating a new post:")
-        post_result, post_exec_time = await CreatePost(conn,
+        post_result, post_exec_time = await CreatePost(get_pool(),
             title="My First Blog Post",
             content="This is my first blog post using team-query.",
             author_id=author_id,
@@ -77,20 +79,20 @@ async def main():
         
         # Example 5: Publish the post
         print("\n5. Publishing the post:")
-        result, exec_time = await PublishPost(conn, id=post_id)
+        result, exec_time = await PublishPost(get_pool(), id=post_id)
         published_date = result['published_at'].strftime("%Y-%m-%d %H:%M:%S")
         print(f"  Post published at: {published_date} in {exec_time:.3f}s")
         
         # Example 6: List all posts
         print("\n6. Listing all posts:")
-        posts, _ = await ListPosts(conn, limit=10, offset=0)
+        posts, _ = await ListPosts(get_pool(), limit=10, offset=0)
         for post in posts:
             published_status = "Published" if post['published'] else "Draft"
             print(f"  - {post['title']} by {post['author_name']} ({published_status})")
             
         # Example 7: Create a comment
         print("\n7. Creating a comment:")
-        comment_result, comment_exec_time = await CreateComment(conn,
+        comment_result, comment_exec_time = await CreateComment(get_pool(),
             post_id=post_id,
             author_name="Reader One",
             author_email="reader@example.com",
@@ -101,12 +103,12 @@ async def main():
             
         # Example 8: Approve the comment
         print("\n8. Approving the comment:")
-        approve_result, approve_exec_time = await ApproveComment(conn, id=comment_result['id'])
+        approve_result, approve_exec_time = await ApproveComment(get_pool(), id=comment_result['id'])
         print(f"  Comment approved: {approve_result['approved']} in {approve_exec_time:.3f}s")
         
         # Example 9: List comments for a post
         print("\n9. Listing comments for the post:")
-        comments, list_exec_time = await ListCommentsByPost(conn, post_id=post_id)
+        comments, list_exec_time = await ListCommentsByPost(get_pool(), post_id=post_id)
         print(f"  Query completed in {list_exec_time:.3f}s")
         for comment in comments:
             approved_status = "Approved" if comment['approved'] else "Pending"
@@ -114,17 +116,17 @@ async def main():
         
         # Example 10: Update the author
         print("\n10. Updating the author:")
-        author_result, author_exec_time = await UpdateAuthor(conn,
+        author_result, author_exec_time = await UpdateAuthor(get_pool(),
             id=author_id,
             name="Samuel Wilson",
-            email="samuel@example.com",
+            email=f"sam.wilson.{int(time.time() * 1000)}@example.com",
             bio="Technology enthusiast, blogger, and software developer."
         )
         print(f"  Updated author: {author_result['name']} - {author_result['bio']} in {author_exec_time:.3f}s")
             
         # Example 11: Update the post
         print("\n11. Updating the post:")
-        post_result, post_exec_time = await UpdatePost(conn,
+        post_result, post_exec_time = await UpdatePost(get_pool(),
             id=post_id,
             title="My First Blog Post - Updated",
             content="This is the updated content of my first blog post using team-query."
@@ -134,24 +136,27 @@ async def main():
         # Example 12: Delete operations
         print("\n12. Delete operations:")
         print("  Deleting comment...")
-        del_result, del_exec_time = await DeleteComment(conn, id=comment_result['id'])
+        del_result, del_exec_time = await DeleteComment(get_pool(), id=comment_result['id'])
         print(f"    - Deleted comment ID: {comment_result['id']} in {del_exec_time:.3f}s")
         
         print("  Deleting post...")
-        del_result, del_exec_time = await DeletePost(conn, id=post_id)
+        del_result, del_exec_time = await DeletePost(get_pool(), id=post_id)
         print(f"    - Deleted post ID: {post_id} in {del_exec_time:.3f}s")
         
         print("  Deleting author...")
-        del_result, del_exec_time = await DeleteAuthor(conn, id=author_id)
+        del_result, del_exec_time = await DeleteAuthor(get_pool(), id=author_id)
         print(f"    - Deleted author ID: {author_id} in {del_exec_time:.3f}s")
         
         print("\nAll examples completed successfully!")
         
-        # Close the connection
-        await conn.close()
+        # Close the connection pool
+        await close_pool()
+        print("Connection pool closed")
             
     except Exception as e:
         print(f"Error: {e}")
+        # Make sure to close pool even on error
+        await close_pool()
         return 1
     
     return 0

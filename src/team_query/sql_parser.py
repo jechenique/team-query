@@ -94,13 +94,14 @@ class SQLCStyleParser:
                                     description=param_descriptions.get(pname),
                                 )
                             )
-                    qtype = cls.QUERY_TYPE_MAP.get(current_type.lower())
+                    # Don't set query_type from directive - let Query.__post_init__ infer it from SQL
+                    # The directive only tells us what to return, not the query type
                     queries.append(
                         Query(
                             name=current_name,
                             sql=sql_text,
                             params=params,
-                            query_type=qtype,
+                            query_type=None,  # Will be inferred from SQL
                             # Store the original directive in returns
                             returns=current_type.lower(),
                         )
@@ -141,13 +142,13 @@ class SQLCStyleParser:
                             description=param_descriptions.get(pname),
                         )
                     )
-            qtype = cls.QUERY_TYPE_MAP.get(current_type.lower())
+            # Don't set query_type from directive - let Query.__post_init__ infer it from SQL
             queries.append(
                 Query(
                     name=current_name,
                     sql=sql_text,
                     params=params,
-                    query_type=qtype,
+                    query_type=None,  # Will be inferred from SQL
                     # Store the original directive in returns
                     returns=current_type.lower(),
                 )

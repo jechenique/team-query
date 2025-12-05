@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, Callable, TypeVar, G
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
 
 # Logging setup
 class Logger:
@@ -439,26 +440,113 @@ def convert_named_params(sql: str) -> str:
     
     return "".join(result)
 
-async def ensure_connection(conn_or_string: Union[psycopg.AsyncConnection, str]) -> Tuple[psycopg.AsyncConnection, bool]:
+async def ensure_connection(
+    conn_or_string: Union[psycopg.AsyncConnection, AsyncConnectionPool, str],
+) -> Tuple[psycopg.AsyncConnection, bool, Optional[AsyncConnectionPool]]:
     """Ensure we have a database connection.
-    
+
     Args:
-        conn_or_string: Connection object or connection string
-        
+        conn_or_string: Connection object, connection pool, or connection string (URL)
+
     Returns:
-        Tuple of (connection, should_close)
+        Tuple of (connection, should_close, pool_reference)
+        - connection: The database connection to use
+        - should_close: Boolean indicating if cleanup is needed
+        - pool_reference: Reference to the pool (if connection came from pool), else None
     """
     should_close = False
-    
-    if isinstance(conn_or_string, str):
-        # It's a connection string, create a new connection
-        conn = await psycopg.AsyncConnection.connect(conn_or_string, autocommit=True)
+    pool_ref = None
+
+    # Check if it's a connection pool (has getconn method)
+    if hasattr(conn_or_string, 'getconn'):
+        conn = await conn_or_string.getconn()
         should_close = True
+        pool_ref = conn_or_string
+    elif isinstance(conn_or_string, str):
+        # It's a connection string - create a single connection (not a pool)
+        # Users should create and pass their own pool for better performance
+        conn = await psycopg.AsyncConnection.connect(conn_or_string)
+        should_close = True
+        pool_ref = None
     else:
         # It's already a connection object
         conn = conn_or_string
+
+    return conn, should_close, pool_ref
+
+# Global pool management (optional convenience functions)
+_global_pool: Optional[AsyncConnectionPool] = None
+
+async def init_pool(connection_string: str, min_size: int = 2, max_size: int = 10, **kwargs) -> AsyncConnectionPool:
+    """Initialize a global connection pool (optional convenience).
+    
+    This is a convenience function for users who want to manage a single global pool.
+    For more control, users can create and manage their own pool directly.
+    
+    Args:
+        connection_string: Database connection URL
+        min_size: Minimum number of connections in pool (default: 2)
+        max_size: Maximum number of connections in pool (default: 10)
+        **kwargs: Additional arguments to pass to AsyncConnectionPool
         
-    return conn, should_close
+    Returns:
+        The initialized connection pool
+        
+    Example:
+        await init_pool("postgresql://user:pass@localhost/db")
+        result = await GetUser(get_pool(), id=1)
+        await close_pool()
+    """
+    global _global_pool
+    if _global_pool is not None:
+        Logger.warning("Global pool already initialized. Closing existing pool first.")
+        await close_pool()
+    
+    _global_pool = AsyncConnectionPool(
+        connection_string,
+        min_size=min_size,
+        max_size=max_size,
+        open=False,  # Don't auto-open, we'll call open() explicitly
+        **kwargs
+    )
+    await _global_pool.open()
+    Logger.info(f"Initialized global connection pool (min={min_size}, max={max_size})")
+    return _global_pool
+
+def get_pool() -> AsyncConnectionPool:
+    """Get the global connection pool.
+    
+    Returns:
+        The global connection pool
+        
+    Raises:
+        RuntimeError: If the pool has not been initialized with init_pool()
+        
+    Example:
+        await init_pool("postgresql://user:pass@localhost/db")
+        result = await GetUser(get_pool(), id=1)
+    """
+    if _global_pool is None:
+        raise RuntimeError(
+            "Database pool not initialized. Call init_pool() first or pass your own pool/connection."
+        )
+    return _global_pool
+
+async def close_pool() -> None:
+    """Close the global connection pool.
+    
+    This should be called at application shutdown.
+    
+    Example:
+        await init_pool("postgresql://user:pass@localhost/db")
+        # ... use the pool ...
+        await close_pool()
+    """
+    global _global_pool
+    if _global_pool is not None:
+        await _global_pool.close()
+        Logger.info("Global connection pool closed")
+        _global_pool = None
 
 class SQLParser:
     """SQL Parser for handling conditional blocks and parameter substitution."""
@@ -511,7 +599,7 @@ async def {function_name}(conn) -> {return_type}:
 
 # Template for SELECT query function body
 SELECT_QUERY_BODY = """    # Get connection
-    conn, should_close = await ensure_connection(conn)
+    conn, should_close, pool_ref = await ensure_connection(conn)
     
     try:
 {process_conditional_blocks}
@@ -524,12 +612,16 @@ SELECT_QUERY_BODY = """    # Get connection
 {result_fetch}
     finally:
         if should_close:
-            await conn.close()
+            if pool_ref is not None:
+                # Return connection to pool
+                await pool_ref.putconn(conn)
+            else:
+                await conn.close()
 """
 
 # Template for INSERT/UPDATE/DELETE query function body
 MODIFY_QUERY_BODY = """    # Get connection
-    conn, should_close = await ensure_connection(conn)
+    conn, should_close, pool_ref = await ensure_connection(conn)
     
     try:
 {process_conditional_blocks}
@@ -544,7 +636,11 @@ MODIFY_QUERY_BODY = """    # Get connection
 {result_fetch}
     finally:
         if should_close:
-            await conn.close()
+            if pool_ref is not None:
+                # Return connection to pool
+                await pool_ref.putconn(conn)
+            else:
+                await conn.close()
 """
 
 # Template for single row result fetch

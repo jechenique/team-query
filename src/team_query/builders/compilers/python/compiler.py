@@ -89,6 +89,9 @@ class PythonCompiler(BaseCompiler):
             content.append("    set_log_level,")
             content.append("    configure_monitoring,")
             content.append("    ensure_connection,")
+            content.append("    init_pool,")
+            content.append("    get_pool,")
+            content.append("    close_pool,")
             content.append("    process_conditional_blocks,")
             content.append("    cleanup_sql,")
             content.append("    convert_named_params")
@@ -105,6 +108,9 @@ class PythonCompiler(BaseCompiler):
                     '"set_log_level"',
                     '"configure_monitoring"',
                     '"ensure_connection"',
+                    '"init_pool"',
+                    '"get_pool"',
+                    '"close_pool"',
                     '"process_conditional_blocks"',
                     '"cleanup_sql"',
                     '"convert_named_params"',
@@ -420,25 +426,33 @@ class PythonCompiler(BaseCompiler):
             params_arg = ""
 
         # Generate result fetch code based on query type and returns directive
-        # First check if there's a specific returns directive that overrides the default behavior
-        if query.returns and query.returns.lower() == "one":
-            result_fetch = SINGLE_ROW_FETCH
-        elif not query.query_type:
-            result_fetch = MULTIPLE_ROWS_FETCH
-        elif query.query_type == QueryType.SELECT:
-            # Default for SELECT is multiple rows unless :one was specified
-            result_fetch = MULTIPLE_ROWS_FETCH
+        if query.query_type == QueryType.SELECT:
+            # SELECT queries
+            if query.returns and query.returns.lower() == "one":
+                result_fetch = SINGLE_ROW_FETCH
+            else:
+                result_fetch = MULTIPLE_ROWS_FETCH
         elif (
             query.query_type == QueryType.INSERT
             or query.query_type == QueryType.UPDATE
             or query.query_type == QueryType.DELETE
         ):
-            if query.returns and query.returns.lower() == "execresult":
+            # INSERT/UPDATE/DELETE queries
+            if query.returns and query.returns.lower() == "one":
+                # Has RETURNING clause, fetch single row
+                result_fetch = EXEC_RESULT_FETCH
+            elif query.returns and query.returns.lower() == "execresult":
                 result_fetch = EXEC_RESULT_FETCH
             elif query.returns and query.returns.lower() == "execrows":
                 result_fetch = EXEC_ROWS_FETCH
             else:
                 result_fetch = EXEC_NO_RESULT
+        elif not query.query_type:
+            # Unknown query type, assume SELECT-like
+            if query.returns and query.returns.lower() == "one":
+                result_fetch = SINGLE_ROW_FETCH
+            else:
+                result_fetch = MULTIPLE_ROWS_FETCH
         else:
             result_fetch = MULTIPLE_ROWS_FETCH
 
