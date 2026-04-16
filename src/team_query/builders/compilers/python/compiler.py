@@ -103,17 +103,17 @@ class PythonCompiler(BaseCompiler):
             all_functions = ["# Utility functions"]
             all_functions.extend(
                 [
-                    '"Logger"',
-                    '"set_logger"',
-                    '"set_log_level"',
-                    '"configure_monitoring"',
-                    '"ensure_connection"',
-                    '"init_pool"',
-                    '"get_pool"',
-                    '"close_pool"',
-                    '"process_conditional_blocks"',
-                    '"cleanup_sql"',
-                    '"convert_named_params"',
+                    '"Logger",',
+                    '"set_logger",',
+                    '"set_log_level",',
+                    '"configure_monitoring",',
+                    '"ensure_connection",',
+                    '"init_pool",',
+                    '"get_pool",',
+                    '"close_pool",',
+                    '"process_conditional_blocks",',
+                    '"cleanup_sql",',
+                    '"convert_named_params",',
                 ]
             )
 

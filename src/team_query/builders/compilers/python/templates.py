@@ -370,7 +370,7 @@ def process_conditional_blocks(sql: str, params: Dict[str, Any]) -> str:
     # Simple implementation that handles basic conditional blocks
     
     # Find all conditional blocks
-    pattern = r"/\* IF (\w+) \*/(.*?)/\* END IF \*/"
+    pattern = r"/\\* IF (\\w+) \\*/(.*?)/\\* END IF \\*/"
     
     def replace_block(match):
         param_name = match.group(1)
@@ -409,7 +409,7 @@ def cleanup_sql(sql: str) -> str:
     # Join lines and clean up whitespace
     cleaned_sql = " ".join(lines)
     # Replace multiple spaces with a single space
-    cleaned_sql = re.sub(r"\s+", " ", cleaned_sql)
+    cleaned_sql = re.sub(r"\\s+", " ", cleaned_sql)
     return cleaned_sql.strip()
 
 def convert_named_params(sql: str) -> str:
@@ -422,7 +422,7 @@ def convert_named_params(sql: str) -> str:
         SQL query with %(name)s parameters
     """
     # Find all named parameters in the SQL query
-    pattern = r"(?<!:):(\w+)"
+    pattern = r"(?<!:):(\\w+)"
     
     result = []
     last_end = 0
@@ -602,6 +602,9 @@ SELECT_QUERY_BODY = """    # Get connection
     conn, should_close, pool_ref = await ensure_connection(conn)
     
     try:
+        # Use autocommit for read-only queries to avoid opening a transaction
+        # (psycopg defaults to autocommit=False which sends BEGIN implicitly)
+        await conn.set_autocommit(True)
 {process_conditional_blocks}
         # Convert named parameters
         sql = convert_named_params(sql)
@@ -613,7 +616,8 @@ SELECT_QUERY_BODY = """    # Get connection
     finally:
         if should_close:
             if pool_ref is not None:
-                # Return connection to pool
+                # Restore default transaction mode before returning to pool
+                await conn.set_autocommit(False)
                 await pool_ref.putconn(conn)
             else:
                 await conn.close()

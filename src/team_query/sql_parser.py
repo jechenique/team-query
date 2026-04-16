@@ -103,7 +103,7 @@ class SQLCStyleParser:
                             params=params,
                             query_type=None,  # Will be inferred from SQL
                             # Store the original directive in returns
-                            returns=current_type.lower(),
+                            returns=current_type.lower() if current_type else None,
                         )
                     )
                 # Start a new query
@@ -120,15 +120,15 @@ class SQLCStyleParser:
         # Flush last query
         if current_name:
             sql_text = "\n".join(sql_lines).strip()
-            param_types: Dict[str, str] = {}
-            param_descriptions: Dict[str, str] = {}
+            param_types2: Dict[str, str] = {}
+            param_descriptions2: Dict[str, str] = {}
             for cl in comment_lines:
                 pm = re.match(cls.PARAM_TYPE_PATTERN, cl)
                 if pm:
                     pname, ptype, pdesc = pm.group(1), pm.group(2), pm.group(3)
-                    param_types[pname] = cls.DEFAULT_TYPE_MAP.get(ptype.lower(), ptype)
+                    param_types2[pname] = cls.DEFAULT_TYPE_MAP.get(ptype.lower(), ptype)
                     if pdesc:
-                        param_descriptions[pname] = pdesc
+                        param_descriptions2[pname] = pdesc
             params = []
             seen = set()
             for pm in re.finditer(cls.PARAM_PATTERN, sql_text):
@@ -138,8 +138,8 @@ class SQLCStyleParser:
                     params.append(
                         Parameter(
                             name=pname,
-                            type=param_types.get(pname, "string"),
-                            description=param_descriptions.get(pname),
+                            type=param_types2.get(pname, "string"),
+                            description=param_descriptions2.get(pname),
                         )
                     )
             # Don't set query_type from directive - let Query.__post_init__ infer it from SQL
@@ -150,7 +150,7 @@ class SQLCStyleParser:
                     params=params,
                     query_type=None,  # Will be inferred from SQL
                     # Store the original directive in returns
-                    returns=current_type.lower(),
+                    returns=current_type.lower() if current_type else None,
                 )
             )
         return queries

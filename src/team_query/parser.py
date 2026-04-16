@@ -2,7 +2,7 @@
 SQL parser for team-query.
 """
 import re
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from team_query.models import Query
 
@@ -89,7 +89,7 @@ class SQLParser:
         Returns a mapping of parameter names to their SQL blocks.
         """
         # Find all conditional blocks
-        param_to_blocks = {}
+        param_to_blocks: Dict[str, List[Tuple[str, str]]] = {}
         for match in re.finditer(cls.CONDITIONAL_BLOCK_PATTERN, sql, re.DOTALL):
             param_name = match.group(1)
             block_content = match.group(2)
@@ -186,7 +186,7 @@ class SQLParser:
 
     @classmethod
     def prepare_query(
-        cls, query: Query, provided_params: Set[str] = None
+        cls, query: Query, provided_params: Optional[Set[str]] = None
     ) -> Tuple[str, List[str]]:
         """
         Prepare a query for execution, converting named parameters to positional.

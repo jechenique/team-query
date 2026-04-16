@@ -9,7 +9,7 @@ from team_query.models import Query, QueryType
 class PythonQueryBuilder:
     """Base class for Python query builders."""
 
-    def __init__(self, conn, query: Query, params: Dict[str, Any] = None):
+    def __init__(self, conn, query: Query, params: Optional[Dict[str, Any]] = None):
         """
         Initialize a query builder.
 
@@ -21,10 +21,10 @@ class PythonQueryBuilder:
         self.conn = conn
         self.query = query
         self.params = params or {}
-        self.where_conditions = {}
-        self.order_by_clause = None
-        self.limit_value = None
-        self.offset_value = None
+        self.where_conditions: Dict[str, Any] = {}
+        self.order_by_clause: Optional[str] = None
+        self.limit_value: Optional[int] = None
+        self.offset_value: Optional[int] = None
         self._executed = False
 
     def where(self, **kwargs) -> "PythonQueryBuilder":
@@ -252,7 +252,7 @@ class PythonQueryBuilder:
 class SelectQueryBuilder(PythonQueryBuilder):
     """Builder for SELECT queries."""
 
-    def __init__(self, conn, query: Query, params: Dict[str, Any] = None):
+    def __init__(self, conn, query: Query, params: Optional[Dict[str, Any]] = None):
         super().__init__(conn, query, params)
         if not query.query_type or query.query_type.value != "select":
             raise ValueError("Query must be a SELECT query")
@@ -261,7 +261,7 @@ class SelectQueryBuilder(PythonQueryBuilder):
 class InsertQueryBuilder(PythonQueryBuilder):
     """Builder for INSERT queries."""
 
-    def __init__(self, conn, query: Query, params: Dict[str, Any] = None):
+    def __init__(self, conn, query: Query, params: Optional[Dict[str, Any]] = None):
         super().__init__(conn, query, params)
         if not query.query_type or query.query_type.value != "insert":
             raise ValueError("Query must be an INSERT query")
@@ -270,7 +270,7 @@ class InsertQueryBuilder(PythonQueryBuilder):
 class UpdateQueryBuilder(PythonQueryBuilder):
     """Builder for UPDATE queries."""
 
-    def __init__(self, conn, query: Query, params: Dict[str, Any] = None):
+    def __init__(self, conn, query: Query, params: Optional[Dict[str, Any]] = None):
         super().__init__(conn, query, params)
         if not query.query_type or query.query_type.value != "update":
             raise ValueError("Query must be an UPDATE query")
@@ -279,7 +279,7 @@ class UpdateQueryBuilder(PythonQueryBuilder):
 class DeleteQueryBuilder(PythonQueryBuilder):
     """Builder for DELETE queries."""
 
-    def __init__(self, conn, query: Query, params: Dict[str, Any] = None):
+    def __init__(self, conn, query: Query, params: Optional[Dict[str, Any]] = None):
         super().__init__(conn, query, params)
         if not query.query_type or query.query_type.value != "delete":
             raise ValueError("Query must be a DELETE query")
