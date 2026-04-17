@@ -7,8 +7,10 @@ from team_query.builders.compilers.base import BaseCompiler
 from team_query.builders.compilers.python.templates import (
     CONDITIONAL_BLOCKS_PROCESSING, EXEC_NO_RESULT, EXEC_RESULT_FETCH,
     EXEC_ROWS_FETCH, FUNCTION_WITH_PARAMS, FUNCTION_WITHOUT_PARAMS,
-    MODIFY_QUERY_BODY, MULTIPLE_ROWS_FETCH, SELECT_QUERY_BODY,
-    SINGLE_ROW_FETCH, STATIC_SQL, UTILS_FILE)
+    MODIFY_EXEC_NO_RESULT, MODIFY_EXEC_RESULT_FETCH, MODIFY_EXEC_ROWS_FETCH,
+    MODIFY_MULTIPLE_ROWS_FETCH, MODIFY_QUERY_BODY, MODIFY_SINGLE_ROW_FETCH,
+    MULTIPLE_ROWS_FETCH, SELECT_QUERY_BODY, SINGLE_ROW_FETCH, STATIC_SQL,
+    UTILS_FILE)
 from team_query.models import (Parameter, QueriesFile, Query, QueryType,
                                SQLConfig)
 
@@ -457,19 +459,19 @@ class PythonCompiler(BaseCompiler):
             or query.query_type == QueryType.UPDATE
             or query.query_type == QueryType.DELETE
         ):
-            # INSERT/UPDATE/DELETE queries
+            # INSERT/UPDATE/DELETE queries - use modify templates (fetch before commit)
             if query.returns and query.returns.lower() == "one":
                 # Has RETURNING clause, fetch single row
-                result_fetch = EXEC_RESULT_FETCH
+                result_fetch = MODIFY_SINGLE_ROW_FETCH
             elif query.returns and query.returns.lower() == "many":
                 # Has RETURNING clause, fetch all rows
-                result_fetch = MULTIPLE_ROWS_FETCH
+                result_fetch = MODIFY_MULTIPLE_ROWS_FETCH
             elif query.returns and query.returns.lower() == "execresult":
-                result_fetch = EXEC_RESULT_FETCH
+                result_fetch = MODIFY_EXEC_RESULT_FETCH
             elif query.returns and query.returns.lower() == "execrows":
-                result_fetch = EXEC_ROWS_FETCH
+                result_fetch = MODIFY_EXEC_ROWS_FETCH
             else:
-                result_fetch = EXEC_NO_RESULT
+                result_fetch = MODIFY_EXEC_NO_RESULT
         elif not query.query_type:
             # Unknown query type, assume SELECT-like
             if query.returns and query.returns.lower() == "one":

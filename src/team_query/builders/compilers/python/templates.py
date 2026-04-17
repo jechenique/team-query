@@ -633,9 +633,10 @@ MODIFY_QUERY_BODY = """    # Get connection
         # Execute query
         async with conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(sql{params_arg})
-            # Commit changes before returning
-            await conn.commit()
 {result_fetch}
+            # Commit changes after fetching results
+            await conn.commit()
+            return result
     finally:
         if should_close:
             if pool_ref is not None:
@@ -665,6 +666,23 @@ EXEC_ROWS_FETCH = """            # Return affected row count
 # Template for exec (no result)
 EXEC_NO_RESULT = """            # No result to return
             return None"""
+
+# Template for single row fetch (modify queries - fetch only, no return)
+MODIFY_SINGLE_ROW_FETCH = """            result = await cur.fetchone()"""
+
+# Template for multiple rows fetch (modify queries - fetch only, no return)
+MODIFY_MULTIPLE_ROWS_FETCH = """            result = await cur.fetchall()"""
+
+# Template for exec result fetch (modify queries - fetch only, no return)
+MODIFY_EXEC_RESULT_FETCH = """            # For INSERT/UPDATE with RETURNING
+            result = await cur.fetchone()"""
+
+# Template for exec rows fetch (modify queries - no return)
+MODIFY_EXEC_ROWS_FETCH = """            # Get affected row count
+            result = cur.rowcount"""
+
+# Template for exec no result (modify queries - no return)
+MODIFY_EXEC_NO_RESULT = """            result = None"""
 
 # Template for conditional blocks processing
 CONDITIONAL_BLOCKS_PROCESSING = """    # Process conditional blocks in SQL
