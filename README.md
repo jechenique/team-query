@@ -103,6 +103,7 @@ So next time someone preaches Team Query, just smile and say,
    - [Transaction Support](#transaction-support)
 7. [Recommended Team Workflow](#recommended-team-workflow)
 8. [Configuration](#configuration)
+   - [CLI Options](#cli-options)
 9. [Advanced Features](#advanced-features)
 10. [Building and Publishing](#building-and-publishing)
 11. [Contributing](#contributing)
@@ -176,6 +177,13 @@ sql:
 
 ```bash
 team-query generate --config team-query.yaml
+```
+
+You can also sync the generated output directly to another project:
+
+```bash
+team-query generate --config team-query.yaml \
+  --sync python:/path/to/your-project/src/db/queries
 ```
 
 4. **Use the generated code**
@@ -662,6 +670,32 @@ cd sql-repository
 team-query generate --config team-query.yaml --output ../my-project/src/generated
 ```
 
+#### 2b. Syncing Generated Code to Your Project
+
+After generating code, you often need to copy the output to another project. Instead of manually copying files (which is error-prone), use the `--sync` flag to automatically sync only the files that changed:
+
+```bash
+team-query generate --config team-query.yaml \
+  --sync python:/path/to/my-python-project/src/db/queries
+```
+
+This will:
+- Generate code normally into the configured `out` directory
+- Compare each generated file with the target directory
+- **Copy only files whose content actually changed** (or are new)
+- **Remove stale files** from the target that no longer exist in the generated output
+- Leave unchanged files untouched
+
+You can sync multiple plugins at once:
+
+```bash
+team-query generate --config team-query.yaml \
+  --sync python:/path/to/python-project/src/db/queries \
+  --sync javascript:/path/to/node-project/src/db/queries
+```
+
+Since `--sync` is a CLI parameter (not in the YAML config), each developer can use their own local paths without affecting the shared configuration.
+
 #### 3. Continuous Integration
 
 For larger teams, set up CI/CD to automatically generate and publish client packages:
@@ -705,6 +739,20 @@ sql:
         out: "./generated/python" # Output directory
       - plugin: javascript        # Generate JavaScript client
         out: "./generated/javascript"
+```
+
+### CLI Options
+
+```
+team-query generate [OPTIONS]
+
+Options:
+  -c, --config PATH   Path to config file (required)
+  -o, --output PATH   Output directory (overrides config)
+  -s, --sync TEXT      Sync generated output to a target directory.
+                       Format: plugin:path (e.g. python:/path/to/target).
+                       Can be specified multiple times for different plugins.
+  --cwd PATH          Working directory for the command
 ```
 
 ## Advanced Features

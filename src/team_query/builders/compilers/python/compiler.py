@@ -354,7 +354,11 @@ class PythonCompiler(BaseCompiler):
                 return "Optional[Dict]"
             return "List[Dict]"
         elif query.query_type == QueryType.INSERT:
-            if query.returns and query.returns.lower() == "execresult":
+            if query.returns and query.returns.lower() == "one":
+                return "Optional[Dict]"
+            elif query.returns and query.returns.lower() == "many":
+                return "List[Dict]"
+            elif query.returns and query.returns.lower() == "execresult":
                 return "Dict"
             elif query.returns and query.returns.lower() == "exec":
                 return "None"
@@ -362,7 +366,11 @@ class PythonCompiler(BaseCompiler):
         elif (
             query.query_type == QueryType.UPDATE or query.query_type == QueryType.DELETE
         ):
-            if query.returns and query.returns.lower() == "execresult":
+            if query.returns and query.returns.lower() == "one":
+                return "Optional[Dict]"
+            elif query.returns and query.returns.lower() == "many":
+                return "List[Dict]"
+            elif query.returns and query.returns.lower() == "execresult":
                 return "Dict"
             elif query.returns and query.returns.lower() == "exec":
                 return "None"
@@ -382,7 +390,13 @@ class PythonCompiler(BaseCompiler):
                 )
             return "        List[Dict]: List of rows"
         elif query.query_type == QueryType.INSERT:
-            if query.returns and query.returns.lower() == "execresult":
+            if query.returns and query.returns.lower() == "one":
+                return (
+                    "        Optional[Dict]: Single row result or None if no rows found"
+                )
+            elif query.returns and query.returns.lower() == "many":
+                return "        List[Dict]: List of rows"
+            elif query.returns and query.returns.lower() == "execresult":
                 return "        Dict: Returned data from the INSERT"
             elif query.returns and query.returns.lower() == "exec":
                 return "        None: No return value"
@@ -390,7 +404,13 @@ class PythonCompiler(BaseCompiler):
         elif (
             query.query_type == QueryType.UPDATE or query.query_type == QueryType.DELETE
         ):
-            if query.returns and query.returns.lower() == "execresult":
+            if query.returns and query.returns.lower() == "one":
+                return (
+                    "        Optional[Dict]: Single row result or None if no rows found"
+                )
+            elif query.returns and query.returns.lower() == "many":
+                return "        List[Dict]: List of rows"
+            elif query.returns and query.returns.lower() == "execresult":
                 return "        Dict: Returned data from the UPDATE/DELETE"
             elif query.returns and query.returns.lower() == "exec":
                 return "        None: No return value"
@@ -441,6 +461,9 @@ class PythonCompiler(BaseCompiler):
             if query.returns and query.returns.lower() == "one":
                 # Has RETURNING clause, fetch single row
                 result_fetch = EXEC_RESULT_FETCH
+            elif query.returns and query.returns.lower() == "many":
+                # Has RETURNING clause, fetch all rows
+                result_fetch = MULTIPLE_ROWS_FETCH
             elif query.returns and query.returns.lower() == "execresult":
                 result_fetch = EXEC_RESULT_FETCH
             elif query.returns and query.returns.lower() == "execrows":

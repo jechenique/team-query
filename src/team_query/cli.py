@@ -10,6 +10,7 @@ import click
 
 from team_query.config import load_config, load_queries, load_schema
 from team_query.models import Config, SQLConfig
+from team_query.sync import sync_directory
 
 
 def get_compiler_plugins():
@@ -42,7 +43,25 @@ def cli():
 @click.option("--config", "-c", required=True, help="Path to config file")
 @click.option("--output", "-o", help="Output directory (overrides config)")
 @click.option("--cwd", help="Working directory for the command")
-def generate(config: str, output: Optional[str] = None, cwd: Optional[str] = None):
+@click.option(
+    "--sync",
+    "-s",
+    multiple=True,
+    help="Sync generated output to a target directory. Format: plugin:path (e.g. python:/path/to/target)",
+)
+@click.option(
+    "--formatter",
+    "-f",
+    multiple=True,
+    help="Run a formatter on generated files before syncing. Can be specified multiple times (e.g. -f 'ruff check --fix' -f 'ruff format').",
+)
+def generate(
+    config: str,
+    output: Optional[str] = None,
+    cwd: Optional[str] = None,
+    sync: tuple = (),
+    formatter: tuple = (),
+):
     """Generate code from SQL queries."""
     # Change working directory if specified
     original_cwd = None
@@ -52,6 +71,18 @@ def generate(config: str, output: Optional[str] = None, cwd: Optional[str] = Non
         print(f"Changed working directory to: {os.getcwd()}")
 
     try:
+        # Parse --sync arguments into a plugin -> path mapping
+        sync_targets = {}
+        for sync_arg in sync:
+            if ":" not in sync_arg:
+                click.echo(
+                    f"Error: --sync must be in format plugin:path (got '{sync_arg}')",
+                    err=True,
+                )
+                sys.exit(1)
+            plugin, path = sync_arg.split(":", 1)
+            sync_targets[plugin] = os.path.expanduser(path)
+
         if not os.path.exists(config):
             click.echo(f"Error: Config file not found: {config}", err=True)
             sys.exit(1)
@@ -110,6 +141,17 @@ def generate(config: str, output: Optional[str] = None, cwd: Optional[str] = Non
 
                 click.echo(f"Generating {plugin_name} code in {out_dir}...")
                 compiler_func(queries_files, sql_config, out_dir)
+
+                # Sync to target directory if requested via CLI
+                if plugin_name in sync_targets:
+                    sync_target = sync_targets[plugin_name]
+                    click.echo(f"Syncing {plugin_name} to {sync_target}...")
+                    result = sync_directory(out_dir, sync_target, formatters=formatter)
+                    click.echo(f"  Sync: {result.summary}")
+                    for f in result.copied:
+                        click.echo(f"    copied: {f}")
+                    for f in result.removed:
+                        click.echo(f"    removed: {f}")
 
         click.echo("Code generation completed successfully.")
 

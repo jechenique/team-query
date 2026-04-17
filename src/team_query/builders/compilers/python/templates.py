@@ -4,11 +4,15 @@
 
 # Template for the utils.py file
 UTILS_FILE = '''"""Utility functions for database access."""
+import importlib.util
 import inspect
 import logging
+import os
 import re
 import sys
+import threading
 import time
+import weakref
 from enum import Enum
 from functools import wraps
 from typing import Any, Dict, List, Optional, Tuple, Union, Callable, TypeVar, Generic, Type
@@ -165,12 +169,6 @@ def get_logger():
         The current logger instance being used
     """
     return Logger.get_logger()
-
-# Import additional modules needed for thread-safe singleton pattern
-import os
-import weakref
-import threading
-import importlib.util
 
 # Initialize thread-safe storage with weak references if it doesn't exist yet
 if not hasattr(sys, '_monitoring_config_instances'):
