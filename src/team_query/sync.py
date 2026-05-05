@@ -4,6 +4,7 @@ Syncs generated files to a target directory, only copying files
 whose content has actually changed. Optionally removes files from
 the target that no longer exist in the source.
 """
+
 import filecmp
 import os
 import shutil

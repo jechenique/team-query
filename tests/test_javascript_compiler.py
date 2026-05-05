@@ -1,4 +1,5 @@
 """Unit tests for the JavaScript compiler."""
+
 import os
 import sys
 import tempfile
@@ -239,9 +240,11 @@ class TestJavaScriptCompiler(unittest.TestCase):
         compiler = JavaScriptCompiler()
 
         # Mock the file operations
-        with patch("builtins.open", mock_open()) as mock_file, patch(
-            "os.path.exists", return_value=True
-        ), patch("os.makedirs"):
+        with (
+            patch("builtins.open", mock_open()) as mock_file,
+            patch("os.path.exists", return_value=True),
+            patch("os.makedirs"),
+        ):
             # Call the compile method
             compiler.compile([queries_file], config, "/tmp/output")
 
@@ -290,9 +293,11 @@ class TestJavaScriptCompiler(unittest.TestCase):
         compiler = JavaScriptCompiler()
 
         # Mock the file operations
-        with patch("builtins.open", mock_open()) as mock_file, patch(
-            "os.path.exists", return_value=True
-        ), patch("os.makedirs"):
+        with (
+            patch("builtins.open", mock_open()) as mock_file,
+            patch("os.path.exists", return_value=True),
+            patch("os.makedirs"),
+        ):
             # Call the compile method
             compiler.compile([queries_file], config, "/tmp/output")
 
@@ -342,9 +347,11 @@ class TestJavaScriptCompiler(unittest.TestCase):
         compiler = JavaScriptCompiler()
 
         # Mock the file operations
-        with patch("builtins.open", mock_open()) as mock_file, patch(
-            "os.path.exists", return_value=True
-        ), patch("os.makedirs"):
+        with (
+            patch("builtins.open", mock_open()) as mock_file,
+            patch("os.path.exists", return_value=True),
+            patch("os.makedirs"),
+        ):
             # Call the compile method
             compiler.compile([queries_file], config, "/tmp/output")
 
@@ -394,9 +401,11 @@ class TestJavaScriptCompiler(unittest.TestCase):
         compiler = JavaScriptCompiler()
 
         # Mock the file operations
-        with patch("builtins.open", mock_open()) as mock_file, patch(
-            "os.path.exists", return_value=True
-        ), patch("os.makedirs"):
+        with (
+            patch("builtins.open", mock_open()) as mock_file,
+            patch("os.path.exists", return_value=True),
+            patch("os.makedirs"),
+        ):
             # Call the compile method
             compiler.compile([queries_file1, queries_file2], config, "/tmp/output")
 
@@ -442,9 +451,11 @@ class TestJavaScriptCompiler(unittest.TestCase):
         compiler = JavaScriptCompiler()
 
         # Mock the file operations
-        with patch("builtins.open", mock_open()) as mock_file, patch(
-            "os.path.exists", return_value=True
-        ), patch("os.makedirs"):
+        with (
+            patch("builtins.open", mock_open()) as mock_file,
+            patch("os.path.exists", return_value=True),
+            patch("os.makedirs"),
+        ):
             # Call the compile method
             compiler.compile([queries_file], config, "/tmp/output")
 

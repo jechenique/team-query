@@ -1,6 +1,7 @@
 """
 Compiler plugins for team-query.
 """
+
 import abc
 import os
 from typing import Any, Dict, List

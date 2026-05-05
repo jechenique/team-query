@@ -1,6 +1,7 @@
 """
 Command-line interface for team-query.
 """
+
 import os
 import pathlib
 import sys
@@ -99,7 +100,7 @@ def generate(
 
         # Process each SQL config
         for i, sql_config in enumerate(cfg.sql):
-            print(f"Processing SQL config #{i+1}")
+            print(f"Processing SQL config #{i + 1}")
 
             # Load queries
             print(f"Loading queries from patterns: {sql_config.queries}")

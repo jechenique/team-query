@@ -4,6 +4,7 @@
 
 # Template for the utils.py file
 UTILS_FILE = '''"""Utility functions for database access."""
+import asyncio
 import importlib.util
 import inspect
 import logging
@@ -20,6 +21,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union, Callable, TypeVar, G
 import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
+
+# Default retry configuration for transient connection errors
+DEFAULT_RETRY_ATTEMPTS = 3
+DEFAULT_RETRY_DELAY = 0.5  # seconds (doubles each attempt)
 
 # Logging setup
 class Logger:
@@ -263,6 +268,23 @@ def configure_monitoring(mode: str) -> None:
     MonitoringConfig.set_mode(mode.lower())
     Logger.info(f"Monitoring configured: {mode}")
 
+def is_transient_connection_error(exc: Exception) -> bool:
+    """Check if an exception is a transient connection error that can be retried."""
+    if isinstance(exc, psycopg.OperationalError):
+        msg = str(exc).lower()
+        transient_markers = [
+            "server closed the connection unexpectedly",
+            "connection refused",
+            "connection reset",
+            "connection is bad",
+            "consuming input failed",
+            "cannot assign requested address",
+            "broken pipe",
+            "connection timed out",
+        ]
+        return any(marker in msg for marker in transient_markers)
+    return False
+
 def monitor_query_performance(func_or_mode=None) -> Callable:
     """Decorator to monitor query performance.
     
@@ -288,34 +310,49 @@ def monitor_query_performance(func_or_mode=None) -> Callable:
         if is_async:
             @wraps(f)
             async def wrapper(*args, **kwargs):
-                # Always get the latest state from the global registry
-                monitoring_mode = MonitoringConfig.get_mode()
-                
-                if not monitoring_mode or monitoring_mode == "none":
-                    # Even when monitoring is disabled, return a tuple for consistent interface
-                    result = await f(*args, **kwargs)
-                    return result, 0
-                    
-                start_time = time.time()
-                try:
-                    result = await f(*args, **kwargs)
-                    end_time = time.time()
-                    execution_time = end_time - start_time
-                    
-                    # Log the execution time
-                    Logger.debug(f"Query {f.__name__} executed in {execution_time:.6f} seconds")
-                    
-                    # Return both result and execution time as a tuple
-                    return result, execution_time
-                    
-                except Exception as e:
-                    end_time = time.time()
-                    execution_time = end_time - start_time
-                    Logger.error(
-                        f"Query {f.__name__} failed after {execution_time:.6f} seconds: {str(e)}",
-                        exc_info=True
-                    )
-                    raise
+                for attempt in range(1, DEFAULT_RETRY_ATTEMPTS + 1):
+                    try:
+                        monitoring_mode = MonitoringConfig.get_mode()
+
+                        if not monitoring_mode or monitoring_mode == "none":
+                            result = await f(*args, **kwargs)
+                            return result, 0
+
+                        start_time = time.time()
+                        try:
+                            result = await f(*args, **kwargs)
+                            end_time = time.time()
+                            execution_time = end_time - start_time
+                            Logger.debug(f"Query {f.__name__} executed in {execution_time:.6f} seconds")
+                            return result, execution_time
+                        except psycopg.OperationalError:
+                            raise
+                        except Exception as e:
+                            end_time = time.time()
+                            execution_time = end_time - start_time
+                            Logger.error(
+                                f"Query {f.__name__} failed after {execution_time:.6f} seconds: {str(e)}",
+                                exc_info=True,
+                            )
+                            raise
+
+                    except psycopg.OperationalError as exc:
+                        if not is_transient_connection_error(exc) or attempt == DEFAULT_RETRY_ATTEMPTS:
+                            if monitoring_mode and monitoring_mode != "none":
+                                end_time = time.time()
+                                execution_time = end_time - start_time
+                                Logger.error(
+                                    f"Query {f.__name__} failed after {execution_time:.6f} seconds: {str(exc)}",
+                                    exc_info=True,
+                                )
+                            raise
+                        delay = DEFAULT_RETRY_DELAY * (2 ** (attempt - 1))
+                        Logger.warning(
+                            f"Transient connection error in {f.__name__} "
+                            f"(attempt {attempt}/{DEFAULT_RETRY_ATTEMPTS}), "
+                            f"retrying in {delay:.1f}s: {exc}"
+                        )
+                        await asyncio.sleep(delay)
             return wrapper
         else:
             @wraps(f)
@@ -500,6 +537,8 @@ async def init_pool(connection_string: str, min_size: int = 2, max_size: int = 1
         Logger.warning("Global pool already initialized. Closing existing pool first.")
         await close_pool()
     
+    kwargs.setdefault("reconnect_timeout", 60)
+    kwargs.setdefault("check", AsyncConnectionPool.check_connection)
     _global_pool = AsyncConnectionPool(
         connection_string,
         min_size=min_size,

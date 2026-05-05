@@ -1,6 +1,7 @@
 """
 SQL parser for team-query that supports sqlc-style query definitions.
 """
+
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 

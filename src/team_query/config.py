@@ -1,12 +1,20 @@
 """
 Configuration loader for team-query.
 """
+
 import glob
 import os
 from typing import Any, Dict, List, Optional, Union
 
-from team_query.models import (Config, Parameter, PluginConfig, ProjectConfig,
-                               QueriesFile, Query, SQLConfig)
+from team_query.models import (
+    Config,
+    Parameter,
+    PluginConfig,
+    ProjectConfig,
+    QueriesFile,
+    Query,
+    SQLConfig,
+)
 from team_query.sql_parser import SQLCStyleParser
 
 
@@ -28,10 +36,10 @@ def load_config(config_path: str) -> Config:
 
     sql_configs = []
     for i, sql_config_data in enumerate(config_data.get("sql", [])):
-        print(f"Processing SQL config #{i+1}: {sql_config_data}")
+        print(f"Processing SQL config #{i + 1}: {sql_config_data}")
         gen_configs = []
         for j, gen_config_data in enumerate(sql_config_data.get("gen", [])):
-            print(f"  Processing gen config #{j+1}: {gen_config_data}")
+            print(f"  Processing gen config #{j + 1}: {gen_config_data}")
             gen_configs.append(
                 PluginConfig(
                     plugin=gen_config_data.get("plugin", ""),

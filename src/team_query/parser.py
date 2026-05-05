@@ -1,6 +1,7 @@
 """
 SQL parser for team-query.
 """
+
 import re
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -206,6 +207,6 @@ class SQLParser:
             # Only include parameters that are provided
             if provided_params is None or param_name in provided_params:
                 param_names.append(param_name)
-                sql = sql.replace(f":{param_name}", f"${i+1}", 1)
+                sql = sql.replace(f":{param_name}", f"${i + 1}", 1)
 
         return sql, param_names

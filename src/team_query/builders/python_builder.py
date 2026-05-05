@@ -1,6 +1,7 @@
 """
 Python query builder for team-query.
 """
+
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from team_query.models import Query, QueryType

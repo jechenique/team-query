@@ -1,6 +1,7 @@
 """
 JavaScript query builder generator for team-query.
 """
+
 from typing import List
 
 from team_query.models import Query

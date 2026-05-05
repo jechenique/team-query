@@ -1,4 +1,5 @@
 """Unit tests for the SQL parser module."""
+
 import os
 import re
 import sys

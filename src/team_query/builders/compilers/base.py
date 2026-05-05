@@ -1,4 +1,5 @@
 """Base compiler module with common functionality."""
+
 import os
 import shutil
 from typing import Any, Dict, List, Optional

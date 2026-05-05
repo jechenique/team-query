@@ -2,6 +2,7 @@
 """
 Test runner for all unit tests.
 """
+
 import os
 import sys
 import unittest
@@ -10,6 +11,7 @@ import unittest
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from test_javascript_compiler import TestJavaScriptCompiler
+
 # Import all test modules
 from test_python_compiler import TestPythonCompiler
 from test_sql_parser import TestSQLParser

@@ -1,18 +1,30 @@
 """Python compiler implementation module."""
+
 import os
 import re
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from team_query.builders.compilers.base import BaseCompiler
 from team_query.builders.compilers.python.templates import (
-    CONDITIONAL_BLOCKS_PROCESSING, EXEC_NO_RESULT, EXEC_RESULT_FETCH,
-    EXEC_ROWS_FETCH, FUNCTION_WITH_PARAMS, FUNCTION_WITHOUT_PARAMS,
-    MODIFY_EXEC_NO_RESULT, MODIFY_EXEC_RESULT_FETCH, MODIFY_EXEC_ROWS_FETCH,
-    MODIFY_MULTIPLE_ROWS_FETCH, MODIFY_QUERY_BODY, MODIFY_SINGLE_ROW_FETCH,
-    MULTIPLE_ROWS_FETCH, SELECT_QUERY_BODY, SINGLE_ROW_FETCH, STATIC_SQL,
-    UTILS_FILE)
-from team_query.models import (Parameter, QueriesFile, Query, QueryType,
-                               SQLConfig)
+    CONDITIONAL_BLOCKS_PROCESSING,
+    EXEC_NO_RESULT,
+    EXEC_RESULT_FETCH,
+    EXEC_ROWS_FETCH,
+    FUNCTION_WITH_PARAMS,
+    FUNCTION_WITHOUT_PARAMS,
+    MODIFY_EXEC_NO_RESULT,
+    MODIFY_EXEC_RESULT_FETCH,
+    MODIFY_EXEC_ROWS_FETCH,
+    MODIFY_MULTIPLE_ROWS_FETCH,
+    MODIFY_QUERY_BODY,
+    MODIFY_SINGLE_ROW_FETCH,
+    MULTIPLE_ROWS_FETCH,
+    SELECT_QUERY_BODY,
+    SINGLE_ROW_FETCH,
+    STATIC_SQL,
+    UTILS_FILE,
+)
+from team_query.models import Parameter, QueriesFile, Query, QueryType, SQLConfig
 
 from .templates import UTILS_FILE
 
@@ -96,7 +108,8 @@ class PythonCompiler(BaseCompiler):
             content.append("    close_pool,")
             content.append("    process_conditional_blocks,")
             content.append("    cleanup_sql,")
-            content.append("    convert_named_params")
+            content.append("    convert_named_params,")
+            content.append("    is_transient_connection_error")
             content.append(")")
             content.append("")
 
@@ -116,6 +129,7 @@ class PythonCompiler(BaseCompiler):
                     '"process_conditional_blocks",',
                     '"cleanup_sql",',
                     '"convert_named_params",',
+                    '"is_transient_connection_error",',
                 ]
             )
 

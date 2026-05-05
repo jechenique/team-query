@@ -2,6 +2,7 @@
 """
 Script to build and publish the team-query package to PyPI.
 """
+
 import os
 import subprocess
 import sys
@@ -12,19 +13,19 @@ def run_command(command, description=None):
     """Run a shell command and print its output."""
     if description:
         print(f"\n{description}...")
-    
+
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
-    
+
     if result.stdout:
         print(result.stdout)
-    
+
     if result.stderr:
         print(result.stderr, file=sys.stderr)
-    
+
     if result.returncode != 0:
         print(f"Command failed with exit code {result.returncode}")
         sys.exit(result.returncode)
-    
+
     return result
 
 
@@ -50,7 +51,7 @@ def publish_to_pypi(test=False):
     if test:
         run_command(
             "twine upload --repository-url https://test.pypi.org/legacy/ dist/*",
-            "Uploading to TestPyPI"
+            "Uploading to TestPyPI",
         )
     else:
         run_command("twine upload dist/*", "Uploading to PyPI")
@@ -60,30 +61,30 @@ def main():
     """Main function."""
     # Parse arguments
     test = "--test" in sys.argv
-    
+
     # Clean up
     clean_build_dirs()
-    
+
     # Build
     build_package()
-    
+
     # Check
     check_package()
-    
+
     # Confirm before publishing
     if test:
         repo = "TestPyPI"
     else:
         repo = "PyPI"
-    
+
     confirm = input(f"\nReady to publish to {repo}. Continue? (y/n): ")
     if confirm.lower() != "y":
         print("Aborted.")
         return
-    
+
     # Publish
     publish_to_pypi(test)
-    
+
     print("\nPublishing completed successfully!")
     if test:
         print("\nTo install from TestPyPI:")
