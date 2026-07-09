@@ -24,6 +24,7 @@ from team_query.builders.compilers.python.templates import (
     STATIC_SQL,
     UTILS_FILE,
 )
+from team_query.log import vprint
 from team_query.models import Parameter, QueriesFile, Query, QueryType, SQLConfig
 
 from .templates import UTILS_FILE
@@ -40,23 +41,27 @@ class PythonCompiler(BaseCompiler):
         self.output_dir = ""
 
     def compile(
-        self, queries_files: List[QueriesFile], config: SQLConfig, output_dir: str
+        self,
+        queries_files: List[QueriesFile],
+        config: SQLConfig,
+        output_dir: str,
+        options: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Compile SQL queries to Python code."""
-        print(f"Python compiler: Starting compilation to {output_dir}")
-        print("USING UPDATED COMPILER WITH FIXED __init__.py GENERATION")
+        self.options = options or {}
+        vprint(f"Python compiler: Starting compilation to {output_dir}")
 
         # Validate query files
         if not queries_files:
-            print("WARNING: No query files provided!")
+            vprint("WARNING: No query files provided!")
         else:
-            print(f"Received {len(queries_files)} query files:")
+            vprint(f"Received {len(queries_files)} query files:")
             for qf in queries_files:
-                print(f"  - {qf.path} with {len(qf.queries)} queries")
+                vprint(f"  - {qf.path} with {len(qf.queries)} queries")
                 if hasattr(qf, "module_name"):
-                    print(f"    Module name: {qf.module_name}")
+                    vprint(f"    Module name: {qf.module_name}")
                 else:
-                    print(f"    Module name: {self._get_module_name(qf.path)}")
+                    vprint(f"    Module name: {self._get_module_name(qf.path)}")
 
         self.query_files = queries_files
         self.config = config
@@ -69,7 +74,7 @@ class PythonCompiler(BaseCompiler):
         self._create_utils_file(os.path.join(output_dir, "utils.py"))
 
         # Process each query file
-        print(f"Processing {len(queries_files)} query files")
+        vprint(f"Processing {len(queries_files)} query files")
         for query_file in queries_files:
             module_name = self._get_module_name(query_file.path)
             output_file = os.path.join(output_dir, f"{module_name}.py")
@@ -82,12 +87,12 @@ class PythonCompiler(BaseCompiler):
     def _create_init_file(self, file_path: str) -> None:
         """Create an __init__.py file."""
         try:
-            print(f"Creating file: {file_path}")
-            print(f"Found {len(self.query_files)} query files:")
+            vprint(f"Creating file: {file_path}")
+            vprint(f"Found {len(self.query_files)} query files:")
             for qf in self.query_files:
-                print(f"  - {qf.path} with {len(qf.queries)} queries")
+                vprint(f"  - {qf.path} with {len(qf.queries)} queries")
                 for q in qf.queries:
-                    print(f"    * {q.name}")
+                    vprint(f"    * {q.name}")
 
             # Ensure the directory exists
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -143,41 +148,6 @@ class PythonCompiler(BaseCompiler):
                 if functions:
                     module_imports[module_name] = functions
 
-            # If no query files were found, use hardcoded values for the blog example
-            if not module_imports:
-                print(
-                    "WARNING: No query files found, using hardcoded values for blog example"
-                )
-                module_imports = {
-                    "authors": [
-                        "GetAuthorById",
-                        "ListAuthors",
-                        "CreateAuthor",
-                        "UpdateAuthor",
-                        "DeleteAuthor",
-                        "GetAuthorWithPostCount",
-                        "SearchAuthors",
-                    ],
-                    "posts": [
-                        "GetPostById",
-                        "ListPosts",
-                        "CreatePost",
-                        "UpdatePost",
-                        "DeletePost",
-                        "ListPostsByAuthor",
-                        "SearchPosts",
-                    ],
-                    "comments": [
-                        "GetCommentById",
-                        "ListComments",
-                        "CreateComment",
-                        "UpdateComment",
-                        "DeleteComment",
-                        "ListCommentsByPost",
-                        "ApproveComment",
-                    ],
-                }
-
             # Generate imports
             for module_name, functions in module_imports.items():
                 content.append(f"from .{module_name} import (")
@@ -195,12 +165,12 @@ class PythonCompiler(BaseCompiler):
             content.append("]")
 
             # Write the file
-            print(f"Writing {len(content)} lines to {file_path}")
-            print(f"First few lines: {content[:5]}")
+            vprint(f"Writing {len(content)} lines to {file_path}")
+            vprint(f"First few lines: {content[:5]}")
 
             # Make sure we're writing something
             if not content:
-                print("WARNING: No content to write to __init__.py")
+                vprint("WARNING: No content to write to __init__.py")
                 content = ['"""Generated database access code."""']
 
             # Write content line by line to avoid any issues
@@ -208,9 +178,9 @@ class PythonCompiler(BaseCompiler):
                 for line in content:
                     f.write(line + "\n")
 
-            print("Created __init__.py successfully")
+            vprint("Created __init__.py successfully")
         except Exception as e:
-            print(f"Error creating __init__.py: {e}")
+            vprint(f"Error creating __init__.py: {e}")
             raise
 
     def _create_utils_file(self, file_path: str) -> None:
@@ -220,7 +190,7 @@ class PythonCompiler(BaseCompiler):
             file_path: Full path to the utils.py file
         """
         try:
-            print(f"Creating file: {file_path}")
+            vprint(f"Creating file: {file_path}")
 
             # Ensure the directory exists
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -229,9 +199,9 @@ class PythonCompiler(BaseCompiler):
             with open(file_path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(UTILS_FILE)
 
-            print("Created utils.py successfully")
+            vprint("Created utils.py successfully")
         except Exception as e:
-            print(f"Error creating utils.py: {str(e)}")
+            vprint(f"Error creating utils.py: {str(e)}")
             raise
 
     def _get_module_name(self, file_name: str) -> str:
@@ -239,18 +209,18 @@ class PythonCompiler(BaseCompiler):
         # Remove path and extension
         base_name = os.path.basename(file_name)
         module_name = os.path.splitext(base_name)[0]
-        print(f"Converting file path '{file_name}' to module name '{module_name}'")
+        vprint(f"Converting file path '{file_name}' to module name '{module_name}'")
         return module_name
 
     def _create_query_file(self, query_file: QueriesFile, output_file: str) -> None:
         """Create a Python file for a query file."""
         try:
-            print(f"Creating file: {output_file}")
+            vprint(f"Creating file: {output_file}")
             module_name = self._get_module_name(query_file.path)
 
             # Get all queries from the file
             queries = query_file.queries
-            print(f"Found {len(queries)} queries in {module_name}")
+            vprint(f"Found {len(queries)} queries in {module_name}")
 
             with open(output_file, "w", encoding="utf-8") as f:
                 # Write imports
@@ -269,14 +239,14 @@ class PythonCompiler(BaseCompiler):
 
                 # Write each query function
                 for query in queries:
-                    print(f"Generating function for query: {query.name}")
+                    vprint(f"Generating function for query: {query.name}")
                     function_code = self._generate_query_function(query)
                     f.write(function_code)
                     f.write("\n\n")
 
-            print(f"Created {module_name}.py successfully")
+            vprint(f"Created {module_name}.py successfully")
         except Exception as e:
-            print(f"Error creating {output_file}: {str(e)}")
+            vprint(f"Error creating {output_file}: {str(e)}")
             raise
 
     def _parse_params(self, query: Query) -> List[Tuple[str, str, str]]:
@@ -441,16 +411,25 @@ class PythonCompiler(BaseCompiler):
 
         # Generate SQL processing code
         if has_conditional_blocks:
-            params_dict = (
-                "{"
-                + ", ".join([f"'{param.name}': {param.name}" for param in query.params])
-                + "}"
-            )
-            process_conditional_blocks = CONDITIONAL_BLOCKS_PROCESSING.format(
-                params_dict=params_dict
-            )
+            if self.options.get("conditional_mode", "runtime") == "static":
+                process_conditional_blocks = self._generate_static_conditional_sql(
+                    query
+                )
+            else:
+                params_dict = (
+                    "{"
+                    + ", ".join(
+                        [f"'{param.name}': {param.name}" for param in query.params]
+                    )
+                    + "}"
+                )
+                process_conditional_blocks = CONDITIONAL_BLOCKS_PROCESSING.format(
+                    sql=self._escape_sql_string(query.sql), params_dict=params_dict
+                )
         else:
-            process_conditional_blocks = STATIC_SQL.format(sql=query.sql)
+            process_conditional_blocks = STATIC_SQL.format(
+                sql=self._escape_sql_string(query.sql)
+            )
 
         # Generate parameters argument for execute
         if query.params:
@@ -508,6 +487,55 @@ class PythonCompiler(BaseCompiler):
                 params_arg=params_arg,
                 result_fetch=result_fetch,
             )
+
+    @staticmethod
+    def _escape_sql_string(sql: str) -> str:
+        """Escape SQL for embedding in a generated triple-quoted string.
+
+        Backslashes and quotes in the SQL (regex patterns, E'...' strings,
+        quoted identifiers) would otherwise be interpreted as Python string
+        escapes and corrupt the query.
+        """
+        return sql.replace("\\", "\\\\").replace('"', '\\"')
+
+    def _generate_static_conditional_sql(self, query: Query) -> str:
+        """Expand conditional blocks at generation time (conditional_mode: static).
+
+        Emits one `if param:` append per block, so the assembled string is
+        exactly what the runtime process_conditional_blocks would produce.
+        Named-parameter conversion and cleanup still happen at runtime, same
+        as the runtime mode.
+        """
+        try:
+            segments = self.split_conditional_segments(query.sql)
+        except ValueError as e:
+            raise ValueError(f"Query {query.name}: {e}") from e
+
+        declared = {param.name for param in query.params}
+        for segment in segments:
+            if segment[0] == "block" and segment[1] not in declared:
+                raise ValueError(
+                    f"Query {query.name}: /* IF {segment[1]} */ references an "
+                    "undeclared parameter"
+                )
+
+        escape = self._escape_sql_string
+        lines = ["        # Conditional blocks resolved at generation time"]
+        first, (_, first_static) = True, segments[0]
+        if first_static:
+            lines.append(f'        sql = """{escape(first_static)}"""')
+            first = False
+        for segment in segments[1:]:
+            if segment[0] == "block":
+                _, param_name, content = segment
+                if first:
+                    lines.append('        sql = ""')
+                    first = False
+                lines.append(f"        if {param_name}:")
+                lines.append(f'            sql += """{escape(content)}"""')
+            elif segment[1]:
+                lines.append(f'        sql += """{escape(segment[1])}"""')
+        return "\n".join(lines) + "\n"
 
     def _has_conditional_blocks(self, sql: str) -> bool:
         """Check if SQL has conditional blocks."""

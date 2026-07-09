@@ -13,6 +13,8 @@ import sys
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from team_query.log import vprint
+
 
 @dataclass
 class SyncResult:
@@ -137,7 +139,7 @@ def sync_directory(
     # Find formatter config from the sync target's project
     config_path = _find_config_file(target_dir) if formatters else None
     if config_path:
-        print(f"Using formatter config: {config_path}")
+        vprint(f"Using formatter config: {config_path}")
 
     # Format generated files before comparing, so diffs are only real changes
     for fmt in formatters or ():

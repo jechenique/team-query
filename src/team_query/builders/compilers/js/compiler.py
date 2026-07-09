@@ -15,6 +15,7 @@ from team_query.builders.compilers.js.templates import (
     NAMED_PARAMS,
     SQL_CLEANUP,
 )
+from team_query.log import vprint
 from team_query.models import QueriesFile, Query, SQLConfig
 
 
@@ -98,94 +99,23 @@ class JavaScriptCompiler(BaseCompiler):
         """Create a utils.js file with utility functions."""
         try:
             with open(file_path, "w", encoding="utf-8") as f:
-                # Add logger utility
-                print("Writing logger utility...")
-                f.write(LOGGER)
-                f.write("\n\n")
-
-                # Add monitoring configuration and wrapper function
-                try:
-                    print("Writing monitoring configuration...")
-                    f.write(MONITORING_CONFIG)
+                for template in (
+                    LOGGER,
+                    MONITORING_CONFIG,
+                    MONITOR_QUERY_PERFORMANCE,
+                    CONDITIONAL_BLOCKS,
+                    SQL_CLEANUP,
+                    NAMED_PARAMS,
+                    ENSURE_CONNECTION,
+                    CREATE_TRANSACTION,
+                ):
+                    f.write(template)
                     f.write("\n\n")
-                    print("Writing monitoring wrapper function...")
-                    f.write(MONITOR_QUERY_PERFORMANCE)
-                    f.write("\n\n")
-                    print(
-                        "Finished writing monitoring configuration and wrapper function"
-                    )
-                except Exception as e:
-                    print(
-                        f"Error writing monitoring configuration and wrapper function: {str(e)}"
-                    )
-                    import traceback
-
-                    traceback.print_exc()
-
-                # Add utility functions for conditional blocks and SQL cleanup
-                try:
-                    print(
-                        "Writing utility functions for conditional blocks and SQL cleanup..."
-                    )
-                    f.write(CONDITIONAL_BLOCKS)
-                    f.write("\n\n")
-                    print(
-                        "Finished writing utility functions for conditional blocks and SQL cleanup"
-                    )
-                except Exception as e:
-                    print(f"Error writing utility functions: {str(e)}")
-
-                # Add SQL cleanup function
-                try:
-                    print("Writing SQL cleanup function...")
-                    f.write(SQL_CLEANUP)
-                    f.write("\n\n")
-                    print("Finished writing SQL cleanup function")
-                except Exception as e:
-                    print(f"Error writing SQL cleanup function: {str(e)}")
-
-                # Add utility function to convert named parameters to positional parameters
-                try:
-                    print(
-                        "Writing utility function to convert named parameters to positional parameters..."
-                    )
-                    f.write(NAMED_PARAMS)
-                    f.write("\n\n")
-                    print(
-                        "Finished writing utility function to convert named parameters to positional parameters"
-                    )
-                except Exception as e:
-                    print(f"Error writing utility function: {str(e)}")
-
-                # Add ensureConnection utility function
-                try:
-                    print("Writing ensureConnection utility function...")
-                    f.write(ENSURE_CONNECTION)
-                    f.write("\n\n")
-                    print("Finished writing ensureConnection utility function")
-                except Exception as e:
-                    print(f"Error writing ensureConnection utility function: {str(e)}")
-
-                # Add createTransaction utility function
-                try:
-                    print("Writing createTransaction utility function...")
-                    f.write(CREATE_TRANSACTION)
-                    f.write("\n\n")
-                    print("Finished writing createTransaction utility function")
-                except Exception as e:
-                    print(f"Error writing createTransaction utility function: {str(e)}")
-
-                # Export utility functions
-                try:
-                    print("Exporting utility functions...")
-                    f.write(MODULE_EXPORTS)
-                    print("Finished exporting utility functions")
-                except Exception as e:
-                    print(f"Error exporting utility functions: {str(e)}")
-
-                print("Created utils.js successfully")
+                f.write(MODULE_EXPORTS)
+            vprint("Created utils.js successfully")
         except Exception as e:
-            print(f"Error creating utils.js: {str(e)}")
+            vprint(f"Error creating utils.js: {str(e)}")
+            raise
 
     def _create_index_file(self, file_path: str) -> None:
         """Create an index.js file with utility functions and module exports."""
@@ -247,24 +177,68 @@ class JavaScriptCompiler(BaseCompiler):
                 f.write("  createTransaction,\n")
 
                 # Export query modules directly
-                print(f"Processing {len(self.query_files)} query files for JavaScript")
+                vprint(f"Processing {len(self.query_files)} query files for JavaScript")
                 for query_file in self.query_files:
                     # Extract module name from file path
                     file_name = os.path.basename(query_file.path)
                     module_name = self.sanitize_name(os.path.splitext(file_name)[0])
-                    print(f"  Module name for {file_name}: {module_name}")
+                    vprint(f"  Module name for {file_name}: {module_name}")
                     f.write(f"  {module_name}: {module_name},\n")
 
                 f.write("};\n")
-                print(f"Created index.js successfully")
+                vprint(f"Created index.js successfully")
         except Exception as e:
-            print(f"Error creating index.js: {str(e)}")
+            vprint(f"Error creating index.js: {str(e)}")
+            raise
+
+    @staticmethod
+    def _escape_sql_template(sql: str) -> str:
+        """Escape SQL for embedding in a generated JS template literal.
+
+        Backslashes, backticks and ${ in the SQL would otherwise be
+        interpreted by the template literal and corrupt the query.
+        """
+        return sql.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
+
+    def _write_static_conditional_sql(self, f, query: Query) -> None:
+        """Expand conditional blocks at generation time (conditional_mode: static).
+
+        Emits one `if (param)` append per block, so the assembled string is
+        exactly what the runtime processConditionalBlocks would produce.
+        Cleanup and named-parameter conversion still happen at runtime, same
+        as the runtime mode.
+        """
+        try:
+            segments = self.split_conditional_segments(query.sql)
+        except ValueError as e:
+            raise ValueError(f"Query {query.name}: {e}") from e
+
+        declared = {param.name for param in query.params}
+        for segment in segments:
+            if segment[0] == "block" and segment[1] not in declared:
+                raise ValueError(
+                    f"Query {query.name}: /* IF {segment[1]} */ references an "
+                    "undeclared parameter"
+                )
+
+        escape = self._escape_sql_template
+        f.write("  // Conditional blocks resolved at generation time\n")
+        f.write(f"  let rawSql = `{escape(segments[0][1])}`;\n")
+        for segment in segments[1:]:
+            if segment[0] == "block":
+                _, param_name, content = segment
+                f.write(f"  if ({param_name}) {{\n")
+                f.write(f"    rawSql += `{escape(content)}`;\n")
+                f.write("  }\n")
+            elif segment[1]:
+                f.write(f"  rawSql += `{escape(segment[1])}`;\n")
+        f.write("  const cleanSql = cleanupSql(rawSql);\n")
 
     def _create_query_file(self, module_name: str, queries: List[Query]) -> None:
         """Create a JavaScript file for a query module."""
         file_path = os.path.join(self.output_dir, f"{module_name}.js")
         try:
-            with open(file_path, "w") as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 # Add imports
                 f.write("/**\n")
                 f.write(f" * Generated JavaScript queries for {module_name}\n")
@@ -275,7 +249,7 @@ class JavaScriptCompiler(BaseCompiler):
 
                 # Add each query function
                 for query in queries:
-                    print(f"Generating JavaScript function for query: {query.name}")
+                    vprint(f"Generating JavaScript function for query: {query.name}")
 
                     # Generate the function
                     function_name = self.sanitize_name(query.name)
@@ -335,15 +309,22 @@ class JavaScriptCompiler(BaseCompiler):
 
                     # Process SQL with conditional blocks if present
                     if self._has_conditional_blocks(query.sql):
-                        f.write("  // Process conditional blocks in SQL\n")
-                        f.write(f"  const rawSql = `{query.sql}`;\n")
-                        f.write(
-                            "  const processedSql = processConditionalBlocks(rawSql, params);\n"
-                        )
-                        f.write("  const cleanSql = cleanupSql(processedSql);\n")
+                        if self.options.get("conditional_mode", "runtime") == "static":
+                            self._write_static_conditional_sql(f, query)
+                        else:
+                            f.write("  // Process conditional blocks in SQL\n")
+                            f.write(
+                                f"  const rawSql = `{self._escape_sql_template(query.sql)}`;\n"
+                            )
+                            f.write(
+                                "  const processedSql = processConditionalBlocks(rawSql, params);\n"
+                            )
+                            f.write("  const cleanSql = cleanupSql(processedSql);\n")
                     else:
                         f.write("  // Use static SQL (no conditional blocks)\n")
-                        f.write(f"  const cleanSql = `{query.sql}`;\n")
+                        f.write(
+                            f"  const cleanSql = `{self._escape_sql_template(query.sql)}`;\n"
+                        )
 
                     # Convert named parameters to positional
                     f.write(
@@ -716,18 +697,21 @@ class JavaScriptCompiler(BaseCompiler):
                         f"module.exports.{function_name} = monitorQueryPerformance({function_name}, '{function_name}');\n\n"
                     )
 
-                print(f"Created {module_name}.js successfully")
+                vprint(f"Created {module_name}.js successfully")
         except Exception as e:
-            print(f"Error creating {module_name}.js: {str(e)}")
-            import traceback
-
-            traceback.print_exc()
+            vprint(f"Error creating {module_name}.js: {str(e)}")
+            raise
 
     def compile(
-        self, queries_files: List[QueriesFile], config: SQLConfig, output_dir: str
+        self,
+        queries_files: List[QueriesFile],
+        config: SQLConfig,
+        output_dir: str,
+        options: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Compile queries to JavaScript code."""
-        print(f"JavaScript compiler: Starting compilation to {output_dir}")
+        self.options = options or {}
+        vprint(f"JavaScript compiler: Starting compilation to {output_dir}")
 
         # Initialize compiler state
         self.query_files = queries_files
@@ -735,22 +719,17 @@ class JavaScriptCompiler(BaseCompiler):
         self.output_dir = output_dir
 
         # Ensure output directory exists
-        print(f"Output directory exists: {os.path.exists(output_dir)}")
-        try:
-            self.clean_output_directory(output_dir)
-            self.create_output_dir(output_dir)
-            print(f"Output directory created/verified: {os.path.exists(output_dir)}")
-        except Exception as e:
-            print(f"Error creating output directory: {str(e)}")
+        self.clean_output_directory(output_dir)
+        self.create_output_dir(output_dir)
 
         # Create a utils.js file with utility functions
         utils_path = os.path.join(output_dir, "utils.js")
-        print(f"Creating file: {utils_path}")
+        vprint(f"Creating file: {utils_path}")
         self._create_utils_file(utils_path)
 
         # Create an index.js file with utility functions and module exports
         index_path = os.path.join(output_dir, "index.js")
-        print(f"Creating file: {index_path}")
+        vprint(f"Creating file: {index_path}")
         self._create_index_file(index_path)
 
         # Create a file for each queries file
@@ -759,8 +738,8 @@ class JavaScriptCompiler(BaseCompiler):
             file_name = os.path.basename(queries_file.path)
             module_name = self.sanitize_name(os.path.splitext(file_name)[0])
             file_path = os.path.join(output_dir, f"{module_name}.js")
-            print(f"Creating file: {file_path}")
-            print(f"Found {len(queries_file.queries)} queries in {module_name}")
+            vprint(f"Creating file: {file_path}")
+            vprint(f"Found {len(queries_file.queries)} queries in {module_name}")
 
             # Create the query file
             self._create_query_file(module_name, queries_file.queries)

@@ -10,11 +10,11 @@ import unittest
 # Add the parent directory to the path so we can import the tests
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
+from test_conditional_blocks import TestConditionalBlocks
 from test_javascript_compiler import TestJavaScriptCompiler
 
 # Import all test modules
 from test_python_compiler import TestPythonCompiler
-from test_sql_parser import TestSQLParser
 
 
 def create_test_suite():
@@ -25,7 +25,7 @@ def create_test_suite():
     loader = unittest.TestLoader()
     test_suite.addTest(loader.loadTestsFromTestCase(TestPythonCompiler))
     test_suite.addTest(loader.loadTestsFromTestCase(TestJavaScriptCompiler))
-    test_suite.addTest(loader.loadTestsFromTestCase(TestSQLParser))
+    test_suite.addTest(loader.loadTestsFromTestCase(TestConditionalBlocks))
 
     return test_suite
 

@@ -4,7 +4,7 @@
 
 A SQL-first code generator inspired by [sqlc](https://github.com/sqlc-dev/sqlc) that creates type-safe database clients for multiple languages from SQL query files.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/jechenique/team-query)
+[![PyPI](https://img.shields.io/pypi/v/team-query.svg)](https://pypi.org/project/team-query/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## **Why *Not* Using Team Query?**  
@@ -331,27 +331,62 @@ LIMIT :limit OFFSET :offset;
 
 ### Conditional SQL Blocks
 
-For better performance with dynamic queries, use conditional blocks:
+For better performance with dynamic queries, use conditional blocks delimited by
+`/* IF param */ ... /* END IF */` comments:
 
 ```sql
 -- name: SearchUsers :many
 -- param: name string Optional name filter
 -- param: email string Optional email filter
+-- param: sort_by_name bool Sort results by name
 -- param: limit int Maximum results to return
 -- param: offset int Pagination offset
 SELECT * FROM users
-WHERE 
-  -- {name
-  AND name ILIKE '%' || :name || '%'
-  -- }
-  -- {email
-  AND email ILIKE '%' || :email || '%'
-  -- }
-ORDER BY name
+WHERE TRUE
+  /* IF name */ AND name ILIKE '%' || :name || '%' /* END IF */
+  /* IF email */ AND email ILIKE '%' || :email || '%' /* END IF */
+ORDER BY
+  /* IF sort_by_name */ name, /* END IF */
+  id
 LIMIT :limit OFFSET :offset;
 ```
 
-When a parameter is null/undefined, its entire block is removed from the query. This creates more efficient SQL that can better utilize indexes.
+A block is included when its parameter is present **and truthy** at call time;
+otherwise (missing, `None`/`null`/`undefined`, `False`, `0`, empty string) the
+whole block is removed from the query. This creates more efficient SQL that can
+better utilize indexes.
+
+A parameter that appears only inside an `/* IF param */` condition (like
+`sort_by_name` above) still becomes a function argument — declare its type with
+a `-- param:` annotation.
+
+Note that only truthiness conditions are supported: value-based conditions such
+as `/* IF sort == 'created' */` are not, so use one boolean flag parameter per
+branch.
+
+#### Compile-time expansion (`conditional_mode`)
+
+By default, conditional blocks are resolved at runtime by a small helper
+shipped in the generated `utils` module. You can instead have the generator
+expand them at generation time, so the generated function assembles the query
+from plain string appends — no marker processing at runtime, and malformed
+blocks (nested markers, undeclared flag parameters) fail the build instead of
+producing broken SQL in production:
+
+```yaml
+sql:
+  - engine: "postgresql"
+    queries: ["queries/*.sql"]
+    gen:
+      - plugin: python
+        out: "./db"
+        options:
+          conditional_mode: static   # default: runtime
+```
+
+Both modes produce identical SQL at execution time for every combination of
+flags; `static` is opt-in for now and will likely become the default in a
+future release.
 
 ### Result Types
 
@@ -366,33 +401,43 @@ This makes the results easy to work with and compatible with most frameworks and
 
 ### Python Usage
 
-The generated Python code provides a clean, type-safe API for database operations:
+The generated Python code provides a clean, type-safe **async** API for
+database operations. Every generated function is a coroutine and returns a
+`(result, execution_time)` tuple — `execution_time` is `0` unless monitoring
+is enabled:
 
 ```python
+import asyncio
+
 # Import generated functions
 from generated.python import GetUserById, ListActiveUsers, SearchUsers
+from generated.python import init_pool, get_pool, close_pool
 
-# Connect to database
-import psycopg
-conn = psycopg.connect("postgresql://user:password@localhost/dbname")
+async def main():
+    # Create a connection pool (or pass a psycopg AsyncConnection / URL)
+    await init_pool("postgresql://user:password@localhost/dbname")
+    try:
+        # Simple query with required parameters
+        user, _ = await GetUserById(get_pool(), id=1)
+        print(f"Found user: {user['name']}")
 
-# Simple query with required parameters
-user = GetUserById(conn, id=1)
-print(f"Found user: {user['name']}")
+        # Query with limit
+        users, _ = await ListActiveUsers(get_pool(), limit=10)
+        for user in users:
+            print(f"Active user: {user['name']}")
 
-# Query with limit
-users = ListActiveUsers(conn, limit=10)
-for user in users:
-    print(f"Active user: {user['name']}")
+        # Dynamic query with optional parameters
+        search_results, _ = await SearchUsers(
+            get_pool(),
+            name="John",     # Truthy - its conditional block is included
+            email=None,      # Falsy - its conditional block is removed
+            limit=10,
+            offset=0,
+        )
+    finally:
+        await close_pool()
 
-# Dynamic query with optional parameters
-search_results = SearchUsers(
-    conn,
-    name="John",     # Optional - will be included in WHERE clause
-    email=None,      # Optional - will be excluded from WHERE clause
-    limit=10,
-    offset=0
-)
+asyncio.run(main())
 ```
 
 ### JavaScript Usage

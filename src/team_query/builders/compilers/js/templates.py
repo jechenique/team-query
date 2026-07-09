@@ -201,7 +201,8 @@ NAMED_PARAMS = """/**
  */
 function convertNamedParams(sql, params) {
   const values = [];
-  const paramRegex = /:([a-zA-Z0-9_]+)/g;
+  // Negative lookbehind skips PostgreSQL ::type casts
+  const paramRegex = /(?<!:):([a-zA-Z0-9_]+)/g;
   
   // Reset lastIndex to ensure we start from the beginning
   paramRegex.lastIndex = 0;

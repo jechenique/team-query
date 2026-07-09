@@ -15,6 +15,8 @@ class SQLCStyleParser:
     QUERY_PATTERN = r"--\s*name:\s*(\w+)\s*:(\w+)\s*\n((?:(?:--(?!\s*name:).*\n)|(?:\s*\n))*)(([\s\S]+?)(?=(?:--\s*name:)|\Z))"
     PARAM_PATTERN = r"(?<!:):(\w+)"
     PARAM_TYPE_PATTERN = r"--\s*param:\s*(\w+)\s+(\w+)(?:\s+(.+))?"
+    # Params used only as conditions in /* IF param */ blocks count as references too
+    CONDITIONAL_PARAM_PATTERN = r"/\*\s*IF\s+(\w+)\s*\*/"
 
     # Query type mapping
     QUERY_TYPE_MAP = {
@@ -53,6 +55,53 @@ class SQLCStyleParser:
     }
 
     @classmethod
+    def _build_query(
+        cls,
+        name: str,
+        type_directive: Optional[str],
+        comment_lines: List[str],
+        sql_lines: List[str],
+    ) -> Query:
+        """Build a Query from the collected header, comments and SQL lines."""
+        sql_text = "\n".join(sql_lines).strip()
+        # Parse parameter types and descriptions from comment lines
+        param_types: Dict[str, str] = {}
+        param_descriptions: Dict[str, str] = {}
+        for cl in comment_lines:
+            pm = re.match(cls.PARAM_TYPE_PATTERN, cl)
+            if pm:
+                pname, ptype, pdesc = pm.group(1), pm.group(2), pm.group(3)
+                param_types[pname] = cls.DEFAULT_TYPE_MAP.get(ptype.lower(), ptype)
+                if pdesc:
+                    param_descriptions[pname] = pdesc
+        # Extract parameters from SQL (:name references and
+        # /* IF name */ condition names)
+        params = []
+        seen = set()
+        for pattern in (cls.PARAM_PATTERN, cls.CONDITIONAL_PARAM_PATTERN):
+            for pm in re.finditer(pattern, sql_text):
+                pname = pm.group(1)
+                if pname not in seen:
+                    seen.add(pname)
+                    params.append(
+                        Parameter(
+                            name=pname,
+                            type=param_types.get(pname, "string"),
+                            description=param_descriptions.get(pname),
+                        )
+                    )
+        # Don't set query_type from directive - let Query.__post_init__ infer
+        # it from SQL. The directive only tells us what to return.
+        return Query(
+            name=name,
+            sql=sql_text,
+            params=params,
+            query_type=None,  # Will be inferred from SQL
+            # Store the original directive in returns
+            returns=type_directive.lower() if type_directive else None,
+        )
+
+    @classmethod
     def parse_sql_file(cls, sql_content: str) -> List[Query]:
         """Parse a SQL file containing sqlc-style query definitions."""
         # Normalize line endings to Unix style
@@ -68,43 +117,9 @@ class SQLCStyleParser:
             if header_match:
                 # Flush previous query
                 if current_name:
-                    sql_text = "\n".join(sql_lines).strip()
-                    # Parse parameter types from comment lines
-                    param_types: Dict[str, str] = {}
-                    param_descriptions: Dict[str, str] = {}
-                    for cl in comment_lines:
-                        pm = re.match(cls.PARAM_TYPE_PATTERN, cl)
-                        if pm:
-                            pname, ptype, pdesc = pm.group(1), pm.group(2), pm.group(3)
-                            param_types[pname] = cls.DEFAULT_TYPE_MAP.get(
-                                ptype.lower(), ptype
-                            )
-                            if pdesc:
-                                param_descriptions[pname] = pdesc
-                    # Extract parameters from SQL
-                    params = []
-                    seen = set()
-                    for pm in re.finditer(cls.PARAM_PATTERN, sql_text):
-                        pname = pm.group(1)
-                        if pname not in seen:
-                            seen.add(pname)
-                            params.append(
-                                Parameter(
-                                    name=pname,
-                                    type=param_types.get(pname, "string"),
-                                    description=param_descriptions.get(pname),
-                                )
-                            )
-                    # Don't set query_type from directive - let Query.__post_init__ infer it from SQL
-                    # The directive only tells us what to return, not the query type
                     queries.append(
-                        Query(
-                            name=current_name,
-                            sql=sql_text,
-                            params=params,
-                            query_type=None,  # Will be inferred from SQL
-                            # Store the original directive in returns
-                            returns=current_type.lower() if current_type else None,
+                        cls._build_query(
+                            current_name, current_type, comment_lines, sql_lines
                         )
                     )
                 # Start a new query
@@ -120,39 +135,8 @@ class SQLCStyleParser:
                     sql_lines.append(line)
         # Flush last query
         if current_name:
-            sql_text = "\n".join(sql_lines).strip()
-            param_types2: Dict[str, str] = {}
-            param_descriptions2: Dict[str, str] = {}
-            for cl in comment_lines:
-                pm = re.match(cls.PARAM_TYPE_PATTERN, cl)
-                if pm:
-                    pname, ptype, pdesc = pm.group(1), pm.group(2), pm.group(3)
-                    param_types2[pname] = cls.DEFAULT_TYPE_MAP.get(ptype.lower(), ptype)
-                    if pdesc:
-                        param_descriptions2[pname] = pdesc
-            params = []
-            seen = set()
-            for pm in re.finditer(cls.PARAM_PATTERN, sql_text):
-                pname = pm.group(1)
-                if pname not in seen:
-                    seen.add(pname)
-                    params.append(
-                        Parameter(
-                            name=pname,
-                            type=param_types2.get(pname, "string"),
-                            description=param_descriptions2.get(pname),
-                        )
-                    )
-            # Don't set query_type from directive - let Query.__post_init__ infer it from SQL
             queries.append(
-                Query(
-                    name=current_name,
-                    sql=sql_text,
-                    params=params,
-                    query_type=None,  # Will be inferred from SQL
-                    # Store the original directive in returns
-                    returns=current_type.lower() if current_type else None,
-                )
+                cls._build_query(current_name, current_type, comment_lines, sql_lines)
             )
         return queries
 

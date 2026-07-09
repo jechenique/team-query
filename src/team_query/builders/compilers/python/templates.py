@@ -640,8 +640,11 @@ SELECT_QUERY_BODY = """    # Get connection
     
     try:
         # Use autocommit for read-only queries to avoid opening a transaction
-        # (psycopg defaults to autocommit=False which sends BEGIN implicitly)
-        await conn.set_autocommit(True)
+        # (psycopg defaults to autocommit=False which sends BEGIN implicitly).
+        # Only touch connections we own - a caller's connection keeps its
+        # transaction mode (and may be inside an open transaction).
+        if should_close:
+            await conn.set_autocommit(True)
 {process_conditional_blocks}
         # Convert named parameters
         sql = convert_named_params(sql)
@@ -724,9 +727,11 @@ MODIFY_EXEC_ROWS_FETCH = """            # Get affected row count
 MODIFY_EXEC_NO_RESULT = """            result = None"""
 
 # Template for conditional blocks processing
-CONDITIONAL_BLOCKS_PROCESSING = """    # Process conditional blocks in SQL
-    sql = process_conditional_blocks(sql, {params_dict})
-"""
+# TODO: only truthiness conditions (/* IF param */) are supported; value-based
+# conditions like /* IF sort == 'created' */ would need a richer runtime.
+CONDITIONAL_BLOCKS_PROCESSING = '''        # Process conditional blocks in SQL
+        sql = process_conditional_blocks("""{sql}""", {params_dict})
+'''
 
 # Template for static SQL
 STATIC_SQL = '''        # Static SQL (no conditional blocks)

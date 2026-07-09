@@ -2,44 +2,44 @@ name: Test
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10']
+        python-version: ['3.9', '3.10', '3.11', '3.12']
 
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v4
+
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         python -m pip install poetry
         poetry install
-    
+
     - name: Run tests
       run: |
         poetry run pytest
-    
+
     - name: Check code formatting
       run: |
-        poetry run black --check .
-        poetry run isort --check-only --profile black .
-    
+        poetry run black --check src tests
+        poetry run isort --check-only --profile black src tests
+
     - name: Lint with pylint
       run: |
-        poetry run pylint src/
-    
+        poetry run pylint --fail-under=9.0 src/
+
     - name: Type check with mypy
       run: |
         poetry run mypy src/
